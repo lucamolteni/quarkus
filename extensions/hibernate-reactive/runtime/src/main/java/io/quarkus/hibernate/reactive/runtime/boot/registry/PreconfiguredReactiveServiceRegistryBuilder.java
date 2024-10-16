@@ -75,16 +75,18 @@ public class PreconfiguredReactiveServiceRegistryBuilder {
     public PreconfiguredReactiveServiceRegistryBuilder(String puName, RecordedState rs,
             HibernateOrmRuntimeConfigPersistenceUnit puConfig) {
         checkIsReactive(rs);
-        this.initiators = buildQuarkusServiceInitiatorList(puName, rs, puConfig);
-        this.integrators = rs.getIntegrators();
-        this.destroyedRegistry = (StandardServiceRegistryImpl) rs.getMetadata()
+        initiators = buildQuarkusServiceInitiatorList(puName, rs, puConfig);
+        integrators = rs.getIntegrators();
+        destroyedRegistry = (StandardServiceRegistryImpl) rs.getMetadata()
                 .getMetadataBuildingOptions()
                 .getServiceRegistry();
     }
 
     private static void checkIsReactive(RecordedState rs) {
-        if (rs.isReactive() == false)
-            throw new IllegalStateException("Booting an Hibernate Reactive serviceregistry on a non-reactive RecordedState!");
+        if (!rs.isReactive()) {
+            throw new IllegalStateException(
+                    "Booting an Hibernate Reactive serviceregistry on a non-reactive RecordedState!");
+        }
     }
 
     public PreconfiguredReactiveServiceRegistryBuilder applySetting(String settingName, Object value) {

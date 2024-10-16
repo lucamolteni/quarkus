@@ -19,13 +19,13 @@ public class HibernateReactiveCompatibilityORMTest {
     public void reactiveCowPersistWithORM() {
         RestAssured.given().when()
                 .auth().preemptive().basic("scott", "jb0ss")
-                .get("/testsORM/blockingCowPersist")
+                .get("/tests/reactiveCowPersist")
                 .then()
-                .body(containsString("\"name\":\"Carolina\"}"));
+                .body(containsString("\"name\":\"Carolina Reactive\"}"));
 
         RestAssured.given().when()
                 .auth().preemptive().basic("scott", "jb0ss")
-                .get("/tests/reactiveCowPersist")
+                .get("/testsORM/blockingCowPersist")
                 .then()
                 .body(containsString("\"name\":\"Carolina\"}"));
     }

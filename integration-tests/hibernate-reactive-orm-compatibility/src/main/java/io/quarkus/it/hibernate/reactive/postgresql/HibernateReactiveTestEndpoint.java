@@ -6,6 +6,8 @@ import jakarta.ws.rs.Path;
 
 import org.hibernate.reactive.mutiny.Mutiny;
 
+import org.jboss.logging.Logger;
+
 import io.quarkus.security.Authenticated;
 import io.smallrye.mutiny.Uni;
 import io.vertx.mutiny.pgclient.PgPool;
@@ -13,6 +15,8 @@ import io.vertx.mutiny.pgclient.PgPool;
 @Path("/tests")
 @Authenticated
 public class HibernateReactiveTestEndpoint {
+
+    private static final Logger log = Logger.getLogger(HibernateReactiveTestEndpoint.class);
 
     @Inject
     Mutiny.SessionFactory sessionFactory;
@@ -26,7 +30,10 @@ public class HibernateReactiveTestEndpoint {
     @Path("/reactiveCowPersist")
     public Uni<FriesianCow> reactiveCowPersist() {
         final FriesianCow cow = new FriesianCow();
-        cow.name = "Carolina";
+        cow.name = "Carolina Reactive";
+
+        log.info("Reactive persist, session factory:" + sessionFactory);
+
         return sessionFactory
                 .withTransaction(s -> s.persist(cow))
                 .chain(() -> sessionFactory

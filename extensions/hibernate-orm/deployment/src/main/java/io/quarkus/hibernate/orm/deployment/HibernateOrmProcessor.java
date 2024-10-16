@@ -272,7 +272,7 @@ public final class HibernateOrmProcessor {
         if (capabilities.isPresent(Capability.HIBERNATE_REACTIVE)) {
             // if we don't have any blocking datasources and Hibernate Reactive is present,
             // we don't want a blocking persistence unit
-            return ImpliedBlockingPersistenceUnitTypeBuildItem.none();
+            return ImpliedBlockingPersistenceUnitTypeBuildItem.generateImpliedPersistenceUnit();
         } else {
             // even if we don't have any JDBC datasource, we trigger the implied blocking persistence unit
             // to properly trigger error conditions and error messages to guide the user
@@ -842,7 +842,8 @@ public final class HibernateOrmProcessor {
                 || hibernateOrmConfig.defaultPersistenceUnit().isAnyPropertySet();
 
         Map<String, Set<String>> modelClassesAndPackagesPerPersistencesUnits = getModelClassesAndPackagesPerPersistenceUnits(
-                hibernateOrmConfig, jpaModel, index.getIndex(), enableDefaultPersistenceUnit);
+                hibernateOrmConfig, jpaModel, index.getIndex(), enableDefaultPersistenceUnit,
+                PersistenceUnitUtil.DEFAULT_PERSISTENCE_UNIT_NAME);
         Set<String> modelClassesAndPackagesForDefaultPersistenceUnit = modelClassesAndPackagesPerPersistencesUnits
                 .getOrDefault(PersistenceUnitUtil.DEFAULT_PERSISTENCE_UNIT_NAME, Collections.emptySet());
 
@@ -1272,7 +1273,8 @@ public final class HibernateOrmProcessor {
     }
 
     public static Map<String, Set<String>> getModelClassesAndPackagesPerPersistenceUnits(HibernateOrmConfig hibernateOrmConfig,
-            JpaModelBuildItem jpaModel, IndexView index, boolean enableDefaultPersistenceUnit) {
+            JpaModelBuildItem jpaModel, IndexView index, boolean enableDefaultPersistenceUnit,
+            String defaultPersistenceUnitName) {
         Map<String, Set<String>> modelClassesAndPackagesPerPersistenceUnits = new HashMap<>();
 
         boolean hasPackagesInQuarkusConfig = hasPackagesInQuarkusConfig(hibernateOrmConfig);
@@ -1297,7 +1299,7 @@ public final class HibernateOrmProcessor {
 
                 for (String packageName : hibernateOrmConfig.defaultPersistenceUnit().packages().get()) {
                     packageRules.computeIfAbsent(normalizePackage(packageName), p -> new HashSet<>())
-                            .add(PersistenceUnitUtil.DEFAULT_PERSISTENCE_UNIT_NAME);
+                            .add(defaultPersistenceUnitName);
                 }
             }
 
@@ -1341,7 +1343,7 @@ public final class HibernateOrmProcessor {
             // so we don't need to split them
             Set<String> allModelClassesAndPackages = new HashSet<>(jpaModel.getAllModelClassNames());
             allModelClassesAndPackages.addAll(jpaModel.getAllModelPackageNames());
-            return Collections.singletonMap(PersistenceUnitUtil.DEFAULT_PERSISTENCE_UNIT_NAME, allModelClassesAndPackages);
+            return Collections.singletonMap(defaultPersistenceUnitName, allModelClassesAndPackages);
         }
 
         Set<String> modelClassesWithPersistenceUnitAnnotations = new TreeSet<>();

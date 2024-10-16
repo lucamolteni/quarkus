@@ -48,6 +48,7 @@ import io.quarkus.deployment.annotations.ExecutionTime;
 import io.quarkus.deployment.annotations.Record;
 import io.quarkus.deployment.builditem.CombinedIndexBuildItem;
 import io.quarkus.hibernate.orm.PersistenceUnit;
+import io.quarkus.hibernate.orm.ReactivePersistenceUnit;
 import io.quarkus.hibernate.orm.runtime.HibernateOrmRecorder;
 import io.quarkus.hibernate.orm.runtime.HibernateOrmRuntimeConfig;
 import io.quarkus.hibernate.orm.runtime.JPAConfig;
@@ -185,7 +186,7 @@ public class HibernateOrmCdiProcessor {
             syntheticBeanBuildItemBuildProducer
                     .produce(createSyntheticBean(persistenceUnitName,
                             true, true,
-                            SessionFactory.class, SESSION_FACTORY_EXPOSED_TYPES, true)
+                            SessionFactory.class, SESSION_FACTORY_EXPOSED_TYPES, true, false)
                             .createWith(recorder.sessionFactorySupplier(persistenceUnitName))
                             .addInjectionPoint(ClassType.create(DotName.createSimple(JPAConfig.class)))
                             .done());
@@ -197,7 +198,7 @@ public class HibernateOrmCdiProcessor {
                 syntheticBeanBuildItemBuildProducer
                         .produce(createSyntheticBean(persistenceUnitName,
                                 true, true,
-                                Session.class, SESSION_EXPOSED_TYPES, false)
+                                Session.class, SESSION_EXPOSED_TYPES, false, false)
                                 .createWith(recorder.sessionSupplier(persistenceUnitName))
                                 .addInjectionPoint(ClassType.create(DotName.createSimple(TransactionSessions.class)))
                                 .done());
@@ -206,7 +207,8 @@ public class HibernateOrmCdiProcessor {
                 syntheticBeanBuildItemBuildProducer
                         .produce(createSyntheticBean(persistenceUnitName,
                                 true, true,
-                                StatelessSession.class, STATELESS_SESSION_EXPOSED_TYPES, false)
+                                StatelessSession.class, STATELESS_SESSION_EXPOSED_TYPES, false,
+                                false)
                                 .createWith(recorder.statelessSessionSupplier(persistenceUnitName))
                                 .addInjectionPoint(ClassType.create(DotName.createSimple(TransactionSessions.class)))
                                 .done());
@@ -223,22 +225,28 @@ public class HibernateOrmCdiProcessor {
             boolean isDefaultPU = PersistenceUnitUtil.isDefaultPersistenceUnit(persistenceUnitConfigName);
             boolean isNamedPU = !isDefaultPU;
 
-            syntheticBeanBuildItemBuildProducer
-                    .produce(createSyntheticBean(persistenceUnitName,
-                            isDefaultPU, isNamedPU,
-                            SessionFactory.class, SESSION_FACTORY_EXPOSED_TYPES, true)
-                            .createWith(recorder.sessionFactorySupplier(persistenceUnitName))
-                            .addInjectionPoint(ClassType.create(DotName.createSimple(JPAConfig.class)))
-                            .done());
-
             if (capabilities.isPresent(Capability.TRANSACTIONS)
-                    && capabilities.isMissing(Capability.HIBERNATE_REACTIVE)) {
+            //                    && !persistenceUnitDescriptor.isReactive()
+            //                    && capabilities.isMissing(Capability.HIBERNATE_REACTIVE)
+            ) {
+
+                boolean isReactive = persistenceUnitDescriptor.isReactive();
+
+                syntheticBeanBuildItemBuildProducer
+                        .produce(createSyntheticBean(persistenceUnitName,
+                                isDefaultPU, isNamedPU,
+                                SessionFactory.class, SESSION_FACTORY_EXPOSED_TYPES, true,
+                                isReactive)
+                                .createWith(recorder.sessionFactorySupplier(persistenceUnitName))
+                                .addInjectionPoint(ClassType.create(DotName.createSimple(JPAConfig.class)))
+                                .done());
+
                 // Do register a Session/EntityManager bean only if JTA is available
                 // Note that the Hibernate Reactive extension excludes JTA intentionally
                 syntheticBeanBuildItemBuildProducer
                         .produce(createSyntheticBean(persistenceUnitName,
                                 isDefaultPU, isNamedPU,
-                                Session.class, SESSION_EXPOSED_TYPES, false)
+                                Session.class, SESSION_EXPOSED_TYPES, false, isReactive)
                                 .createWith(recorder.sessionSupplier(persistenceUnitName))
                                 .addInjectionPoint(ClassType.create(DotName.createSimple(TransactionSessions.class)))
                                 .done());
@@ -247,7 +255,8 @@ public class HibernateOrmCdiProcessor {
                 syntheticBeanBuildItemBuildProducer
                         .produce(createSyntheticBean(persistenceUnitName,
                                 true, true,
-                                StatelessSession.class, STATELESS_SESSION_EXPOSED_TYPES, false)
+                                StatelessSession.class, STATELESS_SESSION_EXPOSED_TYPES, false,
+                                isReactive)
                                 .createWith(recorder.statelessSessionSupplier(persistenceUnitName))
                                 .addInjectionPoint(ClassType.create(DotName.createSimple(TransactionSessions.class)))
                                 .done());
@@ -270,16 +279,16 @@ public class HibernateOrmCdiProcessor {
         List<Class<?>> unremovableClasses = new ArrayList<>();
         unremovableClasses.add(QuarkusArcBeanContainer.class);
 
-        if (capabilities.isMissing(Capability.HIBERNATE_REACTIVE)) {
-            // The following beans only make sense for Hibernate ORM, not for Hibernate Reactive
+        //        if (capabilities.isMissing(Capability.HIBERNATE_REACTIVE)) {
+        // The following beans only make sense for Hibernate ORM, not for Hibernate Reactive
 
-            if (capabilities.isPresent(Capability.TRANSACTIONS)) {
-                unremovableClasses.add(TransactionManager.class);
-                unremovableClasses.add(TransactionSessions.class);
-            }
-            unremovableClasses.add(RequestScopedSessionHolder.class);
-            unremovableClasses.add(RequestScopedStatelessSessionHolder.class);
+        if (capabilities.isPresent(Capability.TRANSACTIONS)) {
+            unremovableClasses.add(TransactionManager.class);
+            unremovableClasses.add(TransactionSessions.class);
         }
+        unremovableClasses.add(RequestScopedSessionHolder.class);
+        unremovableClasses.add(RequestScopedStatelessSessionHolder.class);
+        //        }
         additionalBeans.produce(AdditionalBeanBuildItem.builder().setUnremovable()
                 .addBeanClasses(unremovableClasses.toArray(new Class<?>[unremovableClasses.size()]))
                 .build());
@@ -327,7 +336,8 @@ public class HibernateOrmCdiProcessor {
 
     private static <T> ExtendedBeanConfigurator createSyntheticBean(String persistenceUnitName,
             boolean isDefaultPersistenceUnit, boolean isNamedPersistenceUnit,
-            Class<T> type, List<DotName> allExposedTypes, boolean defaultBean) {
+            Class<T> type, List<DotName> allExposedTypes, boolean defaultBean,
+            boolean isReactive) {
         ExtendedBeanConfigurator configurator = SyntheticBeanBuildItem
                 .configure(type)
                 // NOTE: this is using ApplicationScope and not Singleton, by design, in order to be mockable
@@ -350,6 +360,10 @@ public class HibernateOrmCdiProcessor {
         if (isNamedPersistenceUnit) {
             configurator.addQualifier().annotation(DotNames.NAMED).addValue("value", persistenceUnitName).done();
             configurator.addQualifier().annotation(PersistenceUnit.class).addValue("value", persistenceUnitName).done();
+        }
+
+        if (isReactive) {
+            configurator.addQualifier().annotation(ReactivePersistenceUnit.class).done();
         }
 
         return configurator;

@@ -63,6 +63,8 @@ public final class FastBootHibernateReactivePersistenceProvider implements Persi
 
     public static final String IMPLEMENTATION_NAME = "org.hibernate.reactive.provider.ReactivePersistenceProvider";
 
+    public static String REACTIVE_PERSISTENCE_UNIT_NAME = "<default-reactive>";
+
     private final ProviderUtil providerUtil = new io.quarkus.hibernate.orm.runtime.ProviderUtil();
 
     private volatile FastBootHibernatePersistenceProvider delegate;
@@ -85,6 +87,15 @@ public final class FastBootHibernateReactivePersistenceProvider implements Persi
 
         for (PersistenceUnitDescriptor unit : units) {
             //if the provider is not set, don't use it as people might want to use Hibernate ORM
+
+            // TODO Hack to be replaced
+            // We have two persistence unit descriptor but we should correlate
+            // The descriptor with the provider, so that only the right one is used
+            // Luckily we can return null in this API to use the next provider instead
+            if (!unit.getName().contains("reactive") || !emName.contains("reactive")) {
+                return null;
+            }
+
             if (IMPLEMENTATION_NAME.equalsIgnoreCase(unit.getProviderClassName()) ||
                     unit.getProviderClassName() == null) {
                 EntityManagerFactoryBuilder builder = getEntityManagerFactoryBuilderOrNull(emName, properties);

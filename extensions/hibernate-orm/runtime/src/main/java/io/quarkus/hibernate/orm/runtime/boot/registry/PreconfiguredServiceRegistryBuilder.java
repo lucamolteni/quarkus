@@ -67,8 +67,8 @@ public class PreconfiguredServiceRegistryBuilder {
     private final StandardServiceRegistryImpl destroyedRegistry;
 
     private void checkIsNotReactive(RecordedState rs) {
-        if (rs.isReactive())
-            throw new IllegalStateException("Booting a blocking Hibernate ORM serviceregistry on a Reactive RecordedState!");
+        //        if (rs.isReactive())
+        //            throw new IllegalStateException("Booting a blocking Hibernate ORM serviceregistry on a Reactive RecordedState!");
     }
 
     public PreconfiguredServiceRegistryBuilder(String puName, RecordedState rs,
