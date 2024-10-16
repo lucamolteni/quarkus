@@ -33,9 +33,9 @@ import org.hibernate.tool.schema.spi.SchemaManagementToolCoordinator;
 import org.hibernate.type.format.FormatMapper;
 
 import io.quarkus.arc.InjectableInstance;
+import io.quarkus.hibernate.common.runtime.PersistenceUnitUtil;
 import io.quarkus.hibernate.orm.JsonFormat;
 import io.quarkus.hibernate.orm.XmlFormat;
-import io.quarkus.hibernate.orm.runtime.PersistenceUnitUtil;
 import io.quarkus.hibernate.orm.runtime.RuntimeSettings;
 import io.quarkus.hibernate.orm.runtime.migration.MultiTenancyStrategy;
 import io.quarkus.hibernate.orm.runtime.observers.QuarkusSessionFactoryObserverForDbVersionCheck;

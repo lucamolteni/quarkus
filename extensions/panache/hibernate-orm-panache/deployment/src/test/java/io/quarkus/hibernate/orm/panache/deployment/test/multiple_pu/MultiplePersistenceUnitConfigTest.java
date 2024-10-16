@@ -11,7 +11,7 @@ import org.hibernate.Session;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
-import io.quarkus.hibernate.orm.PersistenceUnit;
+import io.quarkus.hibernate.common.PersistenceUnit;
 import io.quarkus.hibernate.orm.panache.deployment.test.multiple_pu.first.FirstEntity;
 import io.quarkus.hibernate.orm.panache.deployment.test.multiple_pu.second.SecondEntity;
 import io.quarkus.test.QuarkusUnitTest;

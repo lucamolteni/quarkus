@@ -26,15 +26,15 @@ public final class ClassNames {
 
     public static final DotName STATIC_METAMODEL = createConstant("jakarta.persistence.metamodel.StaticMetamodel");
 
-    public static final DotName QUARKUS_PERSISTENCE_UNIT = createConstant("io.quarkus.hibernate.orm.PersistenceUnit");
+    public static final DotName QUARKUS_PERSISTENCE_UNIT = createConstant("io.quarkus.hibernate.common.PersistenceUnit");
     public static final DotName QUARKUS_PERSISTENCE_UNIT_REPEATABLE_CONTAINER = createConstant(
-            "io.quarkus.hibernate.orm.PersistenceUnit$List");
+            "io.quarkus.hibernate.common.PersistenceUnit$List");
     public static final DotName JPA_PERSISTENCE_UNIT = createConstant("jakarta.persistence.PersistenceUnit");
     public static final DotName JPA_PERSISTENCE_CONTEXT = createConstant("jakarta.persistence.PersistenceContext");
     public static final DotName PERSISTENCE_UNIT_EXTENSION = createConstant(
-            "io.quarkus.hibernate.orm.PersistenceUnitExtension");
+            "io.quarkus.hibernate.common.PersistenceUnitExtension");
     public static final DotName PERSISTENCE_UNIT_EXTENSION_REPEATABLE_CONTAINER = createConstant(
-            "io.quarkus.hibernate.orm.PersistenceUnitExtension$List");
+            "io.quarkus.hibernate.common.PersistenceUnitExtension$List");
 
     public static final DotName JPA_ENTITY = createConstant("jakarta.persistence.Entity");
     public static final DotName MAPPED_SUPERCLASS = createConstant("jakarta.persistence.MappedSuperclass");

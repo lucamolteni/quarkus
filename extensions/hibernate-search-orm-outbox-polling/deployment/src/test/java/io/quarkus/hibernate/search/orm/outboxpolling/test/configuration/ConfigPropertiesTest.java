@@ -15,7 +15,7 @@ import org.jboss.shrinkwrap.api.spec.JavaArchive;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
-import io.quarkus.hibernate.orm.PersistenceUnit;
+import io.quarkus.hibernate.common.PersistenceUnit;
 import io.quarkus.hibernate.search.orm.outboxpolling.test.configuration.defaultpu.IndexedEntity;
 import io.quarkus.hibernate.search.orm.outboxpolling.test.configuration.pu1.IndexedEntityForPU1;
 import io.quarkus.test.QuarkusUnitTest;

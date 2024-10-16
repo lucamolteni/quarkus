@@ -14,7 +14,7 @@ import org.hibernate.search.mapper.orm.scope.SearchScope;
 
 import io.quarkus.arc.Arc;
 import io.quarkus.arc.InstanceHandle;
-import io.quarkus.hibernate.orm.PersistenceUnit;
+import io.quarkus.hibernate.common.PersistenceUnit;
 import io.vertx.core.http.HttpServerRequest;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;

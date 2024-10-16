@@ -12,7 +12,7 @@ import jakarta.ws.rs.core.MediaType;
 
 import org.apache.kafka.common.TopicPartition;
 
-import io.quarkus.hibernate.orm.PersistenceUnit;
+import io.quarkus.hibernate.common.PersistenceUnit;
 import io.quarkus.it.kafka.fruit.Fruit;
 import io.quarkus.it.kafka.people.PeopleState;
 import io.quarkus.it.kafka.people.Person;

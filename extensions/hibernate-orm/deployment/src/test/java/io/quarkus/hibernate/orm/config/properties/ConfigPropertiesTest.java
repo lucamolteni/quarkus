@@ -12,7 +12,7 @@ import org.jboss.shrinkwrap.api.spec.JavaArchive;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
-import io.quarkus.hibernate.orm.PersistenceUnit;
+import io.quarkus.hibernate.common.PersistenceUnit;
 import io.quarkus.hibernate.orm.config.properties.defaultpu.MyEntityForDefaultPU;
 import io.quarkus.hibernate.orm.config.properties.overridespu.MyEntityForOverridesPU;
 import io.quarkus.test.QuarkusUnitTest;

@@ -1,5 +1,7 @@
 package io.quarkus.hibernate.reactive.runtime;
 
+import static org.hibernate.jpa.boot.spi.Bootstrap.getEntityManagerFactoryBuilder;
+
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -31,12 +33,12 @@ import io.quarkus.arc.Arc;
 import io.quarkus.arc.InstanceHandle;
 import io.quarkus.datasource.common.runtime.DataSourceUtil;
 import io.quarkus.datasource.runtime.DataSourceSupport;
+import io.quarkus.hibernate.common.runtime.PersistenceUnitUtil;
 import io.quarkus.hibernate.orm.runtime.BuildTimeSettings;
 import io.quarkus.hibernate.orm.runtime.FastBootHibernatePersistenceProvider;
 import io.quarkus.hibernate.orm.runtime.HibernateOrmRuntimeConfig;
 import io.quarkus.hibernate.orm.runtime.HibernateOrmRuntimeConfigPersistenceUnit;
 import io.quarkus.hibernate.orm.runtime.IntegrationSettings;
-import io.quarkus.hibernate.orm.runtime.PersistenceUnitUtil;
 import io.quarkus.hibernate.orm.runtime.PersistenceUnitsHolder;
 import io.quarkus.hibernate.orm.runtime.RuntimeSettings;
 import io.quarkus.hibernate.orm.runtime.RuntimeSettings.Builder;
@@ -64,8 +66,6 @@ public final class FastBootHibernateReactivePersistenceProvider implements Persi
     public static final String IMPLEMENTATION_NAME = "org.hibernate.reactive.provider.ReactivePersistenceProvider";
 
     private final ProviderUtil providerUtil = new io.quarkus.hibernate.orm.runtime.ProviderUtil();
-
-    private volatile FastBootHibernatePersistenceProvider delegate;
 
     private final HibernateOrmRuntimeConfig hibernateOrmRuntimeConfig;
     private final Map<String, List<HibernateOrmIntegrationRuntimeDescriptor>> integrationRuntimeDescriptors;
@@ -373,33 +373,37 @@ public final class FastBootHibernateReactivePersistenceProvider implements Persi
 
     @Override
     public EntityManagerFactory createContainerEntityManagerFactory(PersistenceUnitInfo info, Map map) {
-        //Not supported by Hibernate Reactive: this should always delegate to Hibernate ORM, which will do its own
-        //persistence provider name checks and possibly reject if it's not a suitable.
-        return getJdbcHibernatePersistenceProviderDelegate().createContainerEntityManagerFactory(info, map);
+        String persistenceUnitName = info.getPersistenceUnitName();
+        log.tracef("Starting createEntityManagerFactory for persistenceUnitName %s", persistenceUnitName);
+        final EntityManagerFactoryBuilder builder = getEntityManagerFactoryBuilderOrNull(persistenceUnitName,
+                map);
+        if (builder == null) {
+            log.trace("Could not obtain matching EntityManagerFactoryBuilder, returning null");
+            return null;
+        } else {
+            return builder.build();
+        }
     }
 
     @Override
     public void generateSchema(PersistenceUnitInfo info, Map map) {
-        getJdbcHibernatePersistenceProviderDelegate().generateSchema(info, map);
+        log.tracef("Starting generateSchema : PUI.name=%s", info.getPersistenceUnitName());
+
+        final EntityManagerFactoryBuilder builder = getEntityManagerFactoryBuilder(info, map);
+        builder.generateSchema();
     }
 
     @Override
     public boolean generateSchema(String persistenceUnitName, Map map) {
-        return getJdbcHibernatePersistenceProviderDelegate().generateSchema(persistenceUnitName, map);
-    }
+        log.tracef("Starting generateSchema for persistenceUnitName %s", persistenceUnitName);
 
-    private FastBootHibernatePersistenceProvider getJdbcHibernatePersistenceProviderDelegate() {
-        FastBootHibernatePersistenceProvider localDelegate = this.delegate;
-        if (localDelegate == null) {
-            synchronized (this) {
-                localDelegate = this.delegate;
-                if (localDelegate == null) {
-                    this.delegate = localDelegate = new FastBootHibernatePersistenceProvider(hibernateOrmRuntimeConfig,
-                            integrationRuntimeDescriptors);
-                }
-            }
+        final EntityManagerFactoryBuilder builder = getEntityManagerFactoryBuilderOrNull(persistenceUnitName, map);
+        if (builder == null) {
+            log.trace("Could not obtain matching EntityManagerFactoryBuilder, returning false");
+            return false;
         }
-        return localDelegate;
+        builder.generateSchema();
+        return true;
     }
 
 }

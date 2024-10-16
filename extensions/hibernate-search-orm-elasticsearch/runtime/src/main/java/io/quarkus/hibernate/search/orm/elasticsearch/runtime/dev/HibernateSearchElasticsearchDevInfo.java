@@ -9,7 +9,7 @@ import java.util.TreeSet;
 import org.hibernate.search.backend.elasticsearch.index.ElasticsearchIndexManager;
 import org.hibernate.search.mapper.orm.entity.SearchIndexedEntity;
 
-import io.quarkus.hibernate.orm.runtime.PersistenceUnitUtil;
+import io.quarkus.hibernate.common.runtime.PersistenceUnitUtil;
 
 class HibernateSearchElasticsearchDevInfo {
     private final Set<PersistenceUnit> persistenceUnits = new TreeSet<>(new PersistenceUnitComparator());

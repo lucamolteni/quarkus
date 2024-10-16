@@ -25,7 +25,7 @@ import jakarta.ws.rs.core.MediaType;
 import org.assertj.core.api.InstanceOfAssertFactories;
 import org.assertj.core.api.ListAssert;
 
-import io.quarkus.hibernate.orm.PersistenceUnit;
+import io.quarkus.hibernate.common.PersistenceUnit;
 
 @Path("/xml-mapping-only/entity-listener")
 @ApplicationScoped

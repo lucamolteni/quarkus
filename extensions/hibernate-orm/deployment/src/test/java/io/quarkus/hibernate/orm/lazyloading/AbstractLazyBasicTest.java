@@ -14,7 +14,7 @@ import jakarta.transaction.UserTransaction;
 import org.hibernate.resource.jdbc.spi.StatementInspector;
 import org.junit.jupiter.api.Test;
 
-import io.quarkus.hibernate.orm.PersistenceUnitExtension;
+import io.quarkus.hibernate.common.PersistenceUnitExtension;
 
 public abstract class AbstractLazyBasicTest {
 

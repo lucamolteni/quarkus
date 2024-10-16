@@ -1,4 +1,4 @@
-package io.quarkus.hibernate.orm.runtime;
+package io.quarkus.hibernate.common.runtime;
 
 import java.lang.annotation.Annotation;
 import java.util.Arrays;
@@ -12,8 +12,8 @@ import org.jboss.logging.Logger;
 
 import io.quarkus.arc.Arc;
 import io.quarkus.arc.InjectableInstance;
-import io.quarkus.hibernate.orm.PersistenceUnit;
-import io.quarkus.hibernate.orm.PersistenceUnitExtension;
+import io.quarkus.hibernate.common.PersistenceUnit;
+import io.quarkus.hibernate.common.PersistenceUnitExtension;
 import io.quarkus.runtime.configuration.ConfigurationException;
 
 public class PersistenceUnitUtil {

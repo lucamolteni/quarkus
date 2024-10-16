@@ -11,7 +11,7 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 
-import io.quarkus.hibernate.orm.PersistenceUnit;
+import io.quarkus.hibernate.common.PersistenceUnit;
 import io.quarkus.it.jpa.mapping.xml.modern.library_a.LibraryAEntity;
 import io.quarkus.it.jpa.mapping.xml.modern.library_b.LibraryBEntity;
 

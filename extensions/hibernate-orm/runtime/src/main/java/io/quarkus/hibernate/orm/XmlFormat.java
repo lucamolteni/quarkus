@@ -15,6 +15,8 @@ import jakarta.inject.Qualifier;
 
 import org.hibernate.type.format.FormatMapper;
 
+import io.quarkus.hibernate.common.PersistenceUnitExtension;
+
 /**
  * CDI qualifier for beans implementing a {@link FormatMapper}.
  * <p>

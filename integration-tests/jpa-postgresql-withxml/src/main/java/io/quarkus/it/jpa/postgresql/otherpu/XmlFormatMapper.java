@@ -4,7 +4,7 @@ import org.hibernate.type.descriptor.WrapperOptions;
 import org.hibernate.type.descriptor.java.JavaType;
 import org.hibernate.type.format.FormatMapper;
 
-import io.quarkus.hibernate.orm.PersistenceUnitExtension;
+import io.quarkus.hibernate.common.PersistenceUnitExtension;
 import io.quarkus.hibernate.orm.XmlFormat;
 
 @XmlFormat

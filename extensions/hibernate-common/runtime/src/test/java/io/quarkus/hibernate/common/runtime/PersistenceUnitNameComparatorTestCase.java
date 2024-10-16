@@ -1,4 +1,4 @@
-package io.quarkus.hibernate.orm.runtime.devconsole;
+package io.quarkus.hibernate.common.runtime;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -6,8 +6,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
-
-import io.quarkus.hibernate.orm.runtime.PersistenceUnitUtil;
 
 public class PersistenceUnitNameComparatorTestCase {
 

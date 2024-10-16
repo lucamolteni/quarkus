@@ -12,7 +12,7 @@ import org.hibernate.internal.SessionFactoryImpl;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
-import io.quarkus.hibernate.orm.PersistenceUnit;
+import io.quarkus.hibernate.common.PersistenceUnit;
 import io.quarkus.test.QuarkusUnitTest;
 
 public class EnversConfigurationPerPUTest {

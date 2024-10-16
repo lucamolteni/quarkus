@@ -505,7 +505,7 @@ In our existing `LibraryResource`, we just need to inject the `SearchSession`:
     SearchSession searchSession; // <1>
 ----
 <1> Inject a Hibernate Search session, which relies on the `EntityManager` under the hood.
-Applications with multiple persistence units can use the CDI qualifier `@io.quarkus.hibernate.orm.PersistenceUnit`
+Applications with multiple persistence units can use the CDI qualifier `@io.quarkus.hibernate.common.PersistenceUnit`
 to select the right one:
 see <<multiple-persistence-units-attaching-cdi>>.
 
@@ -611,7 +611,7 @@ and you want the new configuration to be applied to your existing data.
 ----
 <1> Inject a Hibernate Search `SearchMapping`,
 which relies on the `EntityManagerFactory` under the hood.
-Applications with multiple persistence units can use the CDI qualifier `@io.quarkus.hibernate.orm.PersistenceUnit`
+Applications with multiple persistence units can use the CDI qualifier `@io.quarkus.hibernate.common.PersistenceUnit`
 to select the right one:
 see <<multiple-persistence-units-attaching-cdi>>.
 <2> Add a method that will get executed on application startup.
@@ -919,7 +919,7 @@ just add a qualifier:
 @PersistenceUnit("users") <1>
 SearchSession searchSession;
 ----
-<1> This is the `@io.quarkus.hibernate.orm.PersistenceUnit` annotation.
+<1> This is the `@io.quarkus.hibernate.common.PersistenceUnit` annotation.
 
 You can inject the `SearchMapping` of a named persistence unit using the exact same mechanism:
 

@@ -14,7 +14,7 @@ import org.hibernate.boot.query.NamedNativeQueryDefinition;
 import org.hibernate.boot.query.NamedQueryDefinition;
 import org.hibernate.boot.spi.AbstractNamedQueryDefinition;
 
-import io.quarkus.hibernate.orm.runtime.PersistenceUnitUtil;
+import io.quarkus.hibernate.common.runtime.PersistenceUnitUtil;
 
 public class HibernateOrmDevInfo {
 

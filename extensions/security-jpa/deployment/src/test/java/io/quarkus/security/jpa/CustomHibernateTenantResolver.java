@@ -3,7 +3,7 @@ package io.quarkus.security.jpa;
 import jakarta.enterprise.context.RequestScoped;
 import jakarta.inject.Inject;
 
-import io.quarkus.hibernate.orm.PersistenceUnitExtension;
+import io.quarkus.hibernate.common.PersistenceUnitExtension;
 import io.quarkus.hibernate.orm.runtime.tenant.TenantResolver;
 import io.vertx.ext.web.RoutingContext;
 

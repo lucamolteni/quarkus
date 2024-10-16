@@ -12,7 +12,8 @@ import org.hibernate.engine.spi.SessionFactoryImplementor;
 import org.hibernate.search.mapper.orm.mapping.SearchMapping;
 
 import io.quarkus.arc.Arc;
-import io.quarkus.hibernate.orm.runtime.PersistenceUnitUtil;
+import io.quarkus.hibernate.common.PersistenceUnit;
+import io.quarkus.hibernate.common.runtime.PersistenceUnitUtil;
 
 public class HibernateSearchElasticsearchDevController {
 
@@ -52,7 +53,7 @@ public class HibernateSearchElasticsearchDevController {
     public SearchMapping searchMapping(String persistenceUnitName) {
         return Arc.container()
                 .select(SearchMapping.class,
-                        new io.quarkus.hibernate.orm.PersistenceUnit.PersistenceUnitLiteral(persistenceUnitName))
+                        new PersistenceUnit.PersistenceUnitLiteral(persistenceUnitName))
                 .get();
     }
 

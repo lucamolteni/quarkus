@@ -8,7 +8,7 @@ import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 
 import io.quarkus.arc.Unremovable;
-import io.quarkus.hibernate.orm.PersistenceUnit;
+import io.quarkus.hibernate.common.PersistenceUnit;
 
 @Singleton
 public class Producers {

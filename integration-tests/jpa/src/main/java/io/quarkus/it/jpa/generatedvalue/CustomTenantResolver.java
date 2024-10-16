@@ -2,7 +2,7 @@ package io.quarkus.it.jpa.generatedvalue;
 
 import jakarta.enterprise.context.RequestScoped;
 
-import io.quarkus.hibernate.orm.PersistenceUnitExtension;
+import io.quarkus.hibernate.common.PersistenceUnitExtension;
 import io.quarkus.hibernate.orm.runtime.tenant.TenantResolver;
 
 @PersistenceUnitExtension

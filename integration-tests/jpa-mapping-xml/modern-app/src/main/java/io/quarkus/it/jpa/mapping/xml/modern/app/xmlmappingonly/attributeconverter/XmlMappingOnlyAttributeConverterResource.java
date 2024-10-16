@@ -12,7 +12,7 @@ import jakarta.ws.rs.core.MediaType;
 
 import org.hibernate.Session;
 
-import io.quarkus.hibernate.orm.PersistenceUnit;
+import io.quarkus.hibernate.common.PersistenceUnit;
 
 @Path("/xml-mapping-only/attribute-converter")
 @ApplicationScoped

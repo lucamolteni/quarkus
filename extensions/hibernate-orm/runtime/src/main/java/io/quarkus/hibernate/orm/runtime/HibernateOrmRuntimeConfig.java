@@ -2,6 +2,7 @@ package io.quarkus.hibernate.orm.runtime;
 
 import java.util.Map;
 
+import io.quarkus.hibernate.common.runtime.PersistenceUnitUtil;
 import io.quarkus.runtime.annotations.ConfigDocMapKey;
 import io.quarkus.runtime.annotations.ConfigPhase;
 import io.quarkus.runtime.annotations.ConfigRoot;

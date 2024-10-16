@@ -11,7 +11,7 @@ import jakarta.transaction.UserTransaction;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
-import io.quarkus.hibernate.orm.PersistenceUnit;
+import io.quarkus.hibernate.common.PersistenceUnit;
 import io.quarkus.hibernate.orm.multiplepersistenceunits.model.annotation.inventory.Plane;
 import io.quarkus.hibernate.orm.multiplepersistenceunits.model.annotation.shared.SharedEntity;
 import io.quarkus.hibernate.orm.multiplepersistenceunits.model.annotation.user.User;

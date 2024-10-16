@@ -18,7 +18,7 @@ import org.hibernate.search.util.common.SearchException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
-import io.quarkus.hibernate.orm.PersistenceUnit;
+import io.quarkus.hibernate.common.PersistenceUnit;
 import io.quarkus.hibernate.search.orm.elasticsearch.test.multiplepersistenceunits.defaultpu.DefaultPUEntity;
 import io.quarkus.hibernate.search.orm.elasticsearch.test.multiplepersistenceunits.pu1.PU1Entity;
 import io.quarkus.hibernate.search.orm.elasticsearch.test.multiplepersistenceunits.pu2.PU2Entity;

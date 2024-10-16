@@ -1,4 +1,4 @@
-package io.quarkus.hibernate.orm;
+package io.quarkus.hibernate.common;
 
 import static java.lang.annotation.ElementType.FIELD;
 import static java.lang.annotation.ElementType.METHOD;

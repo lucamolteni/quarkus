@@ -1,4 +1,4 @@
-package io.quarkus.hibernate.orm;
+package io.quarkus.hibernate.common;
 
 import static java.lang.annotation.ElementType.FIELD;
 import static java.lang.annotation.ElementType.METHOD;
@@ -17,8 +17,8 @@ import jakarta.inject.Qualifier;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityManagerFactory;
 
-import io.quarkus.hibernate.orm.PersistenceUnit.List;
-import io.quarkus.hibernate.orm.runtime.PersistenceUnitUtil;
+import io.quarkus.hibernate.common.PersistenceUnit.List;
+import io.quarkus.hibernate.common.runtime.PersistenceUnitUtil;
 
 /**
  * This annotation has two different purposes.

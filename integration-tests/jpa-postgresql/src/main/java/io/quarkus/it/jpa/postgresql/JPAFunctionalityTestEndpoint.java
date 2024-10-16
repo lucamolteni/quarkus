@@ -15,7 +15,7 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 
-import io.quarkus.hibernate.orm.PersistenceUnit;
+import io.quarkus.hibernate.common.PersistenceUnit;
 import io.quarkus.it.jpa.postgresql.defaultpu.EntityWithJson;
 import io.quarkus.it.jpa.postgresql.defaultpu.MyUUIDEntity;
 import io.quarkus.it.jpa.postgresql.defaultpu.Person;

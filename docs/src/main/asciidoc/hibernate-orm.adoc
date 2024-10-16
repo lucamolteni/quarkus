@@ -395,7 +395,7 @@ It is perfectly valid to have several persistence units pointing to the same dat
 There are two ways to attach model classes to persistence units, and they should not be mixed:
 
 * Via the `packages` configuration property;
-* Via the `@io.quarkus.hibernate.orm.PersistenceUnit` package-level annotation.
+* Via the `@io.quarkus.hibernate.common.PersistenceUnit` package-level annotation.
 
 If both are mixed, the annotations are ignored and only the `packages` configuration properties are taken into account.
 
@@ -445,7 +445,7 @@ If you have a use case for that and clever ideas about how to implement it witho
 contact us on the link:{quarkus-mailing-list-index}[quarkus-dev mailing list].
 ====
 
-The second approach to attach model classes to a persistence unit is to use package-level `@io.quarkus.hibernate.orm.PersistenceUnit` annotations.
+The second approach to attach model classes to a persistence unit is to use package-level `@io.quarkus.hibernate.common.PersistenceUnit` annotations.
 Again, the two approaches cannot be mixed.
 
 To obtain a configuration similar to the one above with the `packages` configuration property, create a `package-info.java` file with the following content:
@@ -455,9 +455,9 @@ To obtain a configuration similar to the one above with the `packages` configura
 @PersistenceUnit("users") <1>
 package org.acme.model.user;
 
-import io.quarkus.hibernate.orm.PersistenceUnit;
+import io.quarkus.hibernate.common.PersistenceUnit;
 ----
-<1> Be careful, use the `@io.quarkus.hibernate.orm.PersistenceUnit` annotation, not the Jakarta Persistence one.
+<1> Be careful, use the `@io.quarkus.hibernate.common.PersistenceUnit` annotation, not the Jakarta Persistence one.
 
 [CAUTION]
 ====
@@ -487,7 +487,7 @@ Injecting the `EntityManager` of a named persistence unit (`users` in our exampl
 @PersistenceUnit("users") <1>
 EntityManager entityManager;
 ----
-<1> Here again, we use the same `@io.quarkus.hibernate.orm.PersistenceUnit` annotation.
+<1> Here again, we use the same `@io.quarkus.hibernate.common.PersistenceUnit` annotation.
 
 You can inject the `EntityManagerFactory` of a named persistence unit using the exact same mechanism:
 

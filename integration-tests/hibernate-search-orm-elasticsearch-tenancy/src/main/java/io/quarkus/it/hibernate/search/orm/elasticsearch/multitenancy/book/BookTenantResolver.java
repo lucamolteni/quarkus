@@ -4,7 +4,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import jakarta.enterprise.context.RequestScoped;
 
-import io.quarkus.hibernate.orm.PersistenceUnitExtension;
+import io.quarkus.hibernate.common.PersistenceUnitExtension;
 import io.quarkus.hibernate.orm.runtime.tenant.TenantResolver;
 
 @PersistenceUnitExtension("books")

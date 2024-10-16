@@ -17,7 +17,7 @@ import jakarta.ws.rs.core.Response;
 
 import org.hibernate.search.mapper.orm.session.SearchSession;
 
-import io.quarkus.hibernate.orm.PersistenceUnit;
+import io.quarkus.hibernate.common.PersistenceUnit;
 
 @ApplicationScoped
 @Produces("application/json")
