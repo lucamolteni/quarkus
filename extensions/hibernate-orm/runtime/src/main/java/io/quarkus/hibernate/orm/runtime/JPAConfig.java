@@ -18,7 +18,7 @@ import jakarta.persistence.Persistence;
 import org.jboss.logging.Logger;
 
 import io.quarkus.arc.BeanDestroyer;
-import io.quarkus.hibernate.orm.runtime.boot.QuarkusPersistenceUnitDescriptor;
+import io.quarkus.hibernate.common.runtime.boot.QuarkusPersistenceUnitDescriptor;
 
 public class JPAConfig {
 

@@ -10,7 +10,6 @@ import java.util.Set;
 import javax.sql.DataSource;
 
 import jakarta.persistence.EntityManagerFactory;
-import jakarta.persistence.PersistenceException;
 import jakarta.persistence.spi.PersistenceProvider;
 import jakarta.persistence.spi.PersistenceUnitInfo;
 
@@ -29,10 +28,12 @@ import io.quarkus.agroal.runtime.DataSources;
 import io.quarkus.agroal.runtime.UnconfiguredDataSource;
 import io.quarkus.arc.Arc;
 import io.quarkus.datasource.common.runtime.DataSourceUtil;
+import io.quarkus.hibernate.common.runtime.EntityManagerFactoryBuilderBuilder;
 import io.quarkus.hibernate.common.runtime.PersistenceUnitUtil;
+import io.quarkus.hibernate.common.runtime.ProviderName;
+import io.quarkus.hibernate.common.runtime.boot.QuarkusPersistenceUnitDescriptor;
 import io.quarkus.hibernate.orm.runtime.RuntimeSettings.Builder;
 import io.quarkus.hibernate.orm.runtime.boot.FastBootEntityManagerFactoryBuilder;
-import io.quarkus.hibernate.orm.runtime.boot.QuarkusPersistenceUnitDescriptor;
 import io.quarkus.hibernate.orm.runtime.boot.registry.PreconfiguredServiceRegistryBuilder;
 import io.quarkus.hibernate.orm.runtime.config.DatabaseOrmCompatibilityVersion;
 import io.quarkus.hibernate.orm.runtime.integration.HibernateOrmIntegrationRuntimeDescriptor;
@@ -76,42 +77,6 @@ public final class FastBootHibernatePersistenceProvider implements PersistencePr
     }
 
     @SuppressWarnings("rawtypes")
-    @Override
-    public EntityManagerFactory createContainerEntityManagerFactory(PersistenceUnitInfo info, Map properties) {
-        log.tracef("Starting createContainerEntityManagerFactory : %s", info.getPersistenceUnitName());
-
-        return getEntityManagerFactoryBuilder(info, properties).build();
-    }
-
-    @SuppressWarnings("rawtypes")
-    @Override
-    public void generateSchema(PersistenceUnitInfo info, Map map) {
-        log.tracef("Starting generateSchema : PUI.name=%s", info.getPersistenceUnitName());
-
-        final EntityManagerFactoryBuilder builder = getEntityManagerFactoryBuilder(info, map);
-        builder.generateSchema();
-    }
-
-    @SuppressWarnings("rawtypes")
-    @Override
-    public boolean generateSchema(String persistenceUnitName, Map map) {
-        log.tracef("Starting generateSchema for persistenceUnitName %s", persistenceUnitName);
-
-        final EntityManagerFactoryBuilder builder = getEntityManagerFactoryBuilderOrNull(persistenceUnitName, map);
-        if (builder == null) {
-            log.trace("Could not obtain matching EntityManagerFactoryBuilder, returning false");
-            return false;
-        }
-        builder.generateSchema();
-        return true;
-    }
-
-    @Override
-    public ProviderUtil getProviderUtil() {
-        return providerUtil;
-    }
-
-    @SuppressWarnings("rawtypes")
     public EntityManagerFactoryBuilder getEntityManagerFactoryBuilder(PersistenceUnitInfo info, Map integration) {
         return getEntityManagerFactoryBuilder(info.getPersistenceUnitName(), integration);
     }
@@ -133,31 +98,20 @@ public final class FastBootHibernatePersistenceProvider implements PersistencePr
     @SuppressWarnings("rawtypes")
     private EntityManagerFactoryBuilder getEntityManagerFactoryBuilderOrNull(String persistenceUnitName,
             Map properties) {
+        EntityManagerFactoryBuilderBuilder entityManagerFactoryBuilderBuilder = new EntityManagerFactoryBuilderBuilder(log);
+
         log.tracef("Attempting to obtain correct EntityManagerFactoryBuilder for persistenceUnitName : %s",
                 persistenceUnitName);
 
-        verifyProperties(properties);
+        entityManagerFactoryBuilderBuilder.verifyPropertiesPresence(properties);
 
         // These are pre-parsed during image generation:
         final List<QuarkusPersistenceUnitDescriptor> units = PersistenceUnitsHolder.getPersistenceUnitDescriptors();
 
-        log.debugf("Located %s persistence units; checking each", units.size());
-
-        if (persistenceUnitName == null && units.size() > 1) {
-            // no persistence-unit name to look for was given and we found multiple
-            // persistence-units
-            throw new PersistenceException("No name provided and multiple persistence units found");
-        }
+        entityManagerFactoryBuilderBuilder.validatePersistenceUnitSizeOnlyOne(persistenceUnitName, units);
 
         for (QuarkusPersistenceUnitDescriptor persistenceUnit : units) {
-            log.debugf(
-                    "Checking persistence-unit [name=%s, explicit-provider=%s] against incoming persistence unit name [%s]",
-                    persistenceUnit.getName(), persistenceUnit.getProviderClassName(), persistenceUnitName);
-
-            final boolean matches = persistenceUnitName == null
-                    || persistenceUnit.getName().equals(persistenceUnitName);
-            if (!matches) {
-                log.debugf("Excluding from consideration '%s' due to name mismatch", persistenceUnit.getName());
+            if (entityManagerFactoryBuilderBuilder.notSameName(persistenceUnitName, persistenceUnit)) {
                 continue;
             }
 
@@ -169,20 +123,97 @@ public final class FastBootHibernatePersistenceProvider implements PersistencePr
 
             RecordedState recordedState = PersistenceUnitsHolder.popRecordedState(persistenceUnitName);
 
-            if (recordedState.isReactive()) {
-                throw new IllegalStateException(
-                        "Attempting to boot a blocking Hibernate ORM instance on a reactive RecordedState");
-            }
             final PrevalidatedQuarkusMetadata metadata = recordedState.getMetadata();
             var puConfig = hibernateOrmRuntimeConfig.persistenceUnits().get(persistenceUnit.getConfigurationName());
             if (puConfig.active().isPresent() && !puConfig.active().get()) {
                 throw new IllegalStateException(
                         "Attempting to boot a deactivated Hibernate ORM persistence unit");
             }
-            RuntimeSettings runtimeSettings = buildRuntimeSettings(persistenceUnitName, recordedState, puConfig);
+            final BuildTimeSettings buildTimeSettings = recordedState.getBuildTimeSettings();
+            final IntegrationSettings integrationSettings = recordedState.getIntegrationSettings();
+            Builder runtimeSettingsBuilder = new Builder(buildTimeSettings, integrationSettings);
 
-            StandardServiceRegistry standardServiceRegistry = rewireMetadataAndExtractServiceRegistry(persistenceUnitName,
-                    recordedState, puConfig, runtimeSettings);
+            Optional<String> dataSourceName = recordedState.getBuildTimeSettings().getSource().getDataSource();
+            if (dataSourceName.isPresent()) {
+                // Inject the datasource
+                injectDataSource(persistenceUnitName, dataSourceName.get(), runtimeSettingsBuilder);
+            }
+
+            // Inject runtime configuration if the persistence unit was defined by Quarkus configuration
+            if (!recordedState.isFromPersistenceXml()) {
+                injectRuntimeConfiguration(puConfig, runtimeSettingsBuilder);
+            }
+
+            for (HibernateOrmIntegrationRuntimeDescriptor descriptor : integrationRuntimeDescriptors
+                    .getOrDefault(persistenceUnitName, Collections.emptyList())) {
+                Optional<HibernateOrmIntegrationRuntimeInitListener> listenerOptional = descriptor.getInitListener();
+                if (listenerOptional.isPresent()) {
+                    listenerOptional.get().contributeRuntimeProperties(runtimeSettingsBuilder::put);
+                }
+            }
+
+            // Allow detection of driver/database capabilities on runtime init (was disabled during static init)
+            runtimeSettingsBuilder.put("hibernate.boot.allow_jdbc_metadata_access", "true");
+
+            if (!puConfig.unsupportedProperties().isEmpty()) {
+                log.warnf("Persistence-unit [%s] sets unsupported properties."
+                        + " These properties may not work correctly, and even if they do,"
+                        + " that may change when upgrading to a newer version of Quarkus (even just a micro/patch version)."
+                        + " Consider using a supported configuration property before falling back to unsupported ones."
+                        + " If there is no supported equivalent, make sure to file a feature request so that a supported configuration property can be added to Quarkus,"
+                        + " and more importantly so that the configuration property is tested regularly."
+                        + " Unsupported properties being set: %s",
+                        persistenceUnitName,
+                        puConfig.unsupportedProperties().keySet());
+            }
+            for (Map.Entry<String, String> entry : puConfig.unsupportedProperties().entrySet()) {
+                var key = entry.getKey();
+                if (runtimeSettingsBuilder.get(key) != null) {
+                    log.warnf("Persistence-unit [%s] sets property '%s' to a custom value through '%s',"
+                            + " but Quarkus already set that property independently."
+                            + " The custom value will be ignored.",
+                            persistenceUnitName, key,
+                            HibernateOrmRuntimeConfig.puPropertyKey(persistenceUnitName,
+                                    "unsupported-properties.\"" + key + "\""));
+                    continue;
+                }
+                runtimeSettingsBuilder.put(entry.getKey(), entry.getValue());
+            }
+
+            var databaseOrmCompatibilityVersion = buildTimeSettings.getSource().getDatabaseOrmCompatibilityVersion();
+            var databaseOrmCompatibilitySettings = buildTimeSettings.getDatabaseOrmCompatibilitySettings();
+            if (databaseOrmCompatibilityVersion != DatabaseOrmCompatibilityVersion.LATEST) {
+                log.warnf("Persistence-unit [%1$s]: enabling best-effort backwards compatibility with '%2$s=%3$s'."
+                        + " Quarkus will attempt to change the behavior and expected schema of Hibernate ORM"
+                        + " to match those of Hibernate ORM %3$s."
+                        + " This is an inherently best-effort feature that cannot address all "
+                        + " backwards-incompatible changes of Hibernate ORM 6."
+                        + " It is also inherently unstable and may stop working in future versions of Quarkus."
+                        + " Consider migrating your application to native Hibernate ORM 6 behavior;"
+                        + " see https://github.com/quarkusio/quarkus/wiki/Migration-Guide-3.0:-Hibernate-ORM-5-to-6-migration for more information.",
+                        persistenceUnitName,
+                        HibernateOrmRuntimeConfig.puPropertyKey(persistenceUnitName, "database.orm-compatibility.version"),
+                        databaseOrmCompatibilityVersion.externalRepresentation,
+                        puConfig.unsupportedProperties().keySet());
+            }
+            for (Map.Entry<String, String> entry : databaseOrmCompatibilitySettings.entrySet()) {
+                var key = entry.getKey();
+                var value = entry.getValue();
+                if (!runtimeSettingsBuilder.isConfigured(key)) {
+                    log.warnf("Persistence-unit [%1$s] - %2$s compatibility: setting '%3$s=%4$s'."
+                            + " This affects Hibernate ORM's behavior and schema compatibility"
+                            + " and may stop working in future versions of Quarkus.",
+                            persistenceUnitName,
+                            databaseOrmCompatibilityVersion.externalRepresentation,
+                            key, value);
+                    runtimeSettingsBuilder.put(key, value);
+                }
+            }
+
+            RuntimeSettings runtimeSettings = runtimeSettingsBuilder.build();
+
+            StandardServiceRegistry standardServiceRegistry = rewireMetadataAndExtractServiceRegistry(
+                    persistenceUnitName, recordedState, puConfig, runtimeSettings);
 
             final Object cdiBeanManager = Arc.container().beanManager();
             final Object validatorFactory = Arc.container().instance("quarkus-hibernate-validator-factory").get();
@@ -197,91 +228,6 @@ public final class FastBootHibernatePersistenceProvider implements PersistencePr
 
         log.debug("Found no matching persistence units");
         return null;
-    }
-
-    private RuntimeSettings buildRuntimeSettings(String persistenceUnitName, RecordedState recordedState,
-            HibernateOrmRuntimeConfigPersistenceUnit persistenceUnitConfig) {
-        final BuildTimeSettings buildTimeSettings = recordedState.getBuildTimeSettings();
-        final IntegrationSettings integrationSettings = recordedState.getIntegrationSettings();
-        Builder runtimeSettingsBuilder = new Builder(buildTimeSettings, integrationSettings);
-
-        Optional<String> dataSourceName = recordedState.getBuildTimeSettings().getSource().getDataSource();
-        if (dataSourceName.isPresent()) {
-            // Inject the datasource
-            injectDataSource(persistenceUnitName, dataSourceName.get(), runtimeSettingsBuilder);
-        }
-
-        // Inject runtime configuration if the persistence unit was defined by Quarkus configuration
-        if (!recordedState.isFromPersistenceXml()) {
-            injectRuntimeConfiguration(persistenceUnitConfig, runtimeSettingsBuilder);
-        }
-
-        for (HibernateOrmIntegrationRuntimeDescriptor descriptor : integrationRuntimeDescriptors
-                .getOrDefault(persistenceUnitName, Collections.emptyList())) {
-            Optional<HibernateOrmIntegrationRuntimeInitListener> listenerOptional = descriptor.getInitListener();
-            if (listenerOptional.isPresent()) {
-                listenerOptional.get().contributeRuntimeProperties(runtimeSettingsBuilder::put);
-            }
-        }
-
-        // Allow detection of driver/database capabilities on runtime init (was disabled during static init)
-        runtimeSettingsBuilder.put("hibernate.boot.allow_jdbc_metadata_access", "true");
-
-        if (!persistenceUnitConfig.unsupportedProperties().isEmpty()) {
-            log.warnf("Persistence-unit [%s] sets unsupported properties."
-                    + " These properties may not work correctly, and even if they do,"
-                    + " that may change when upgrading to a newer version of Quarkus (even just a micro/patch version)."
-                    + " Consider using a supported configuration property before falling back to unsupported ones."
-                    + " If there is no supported equivalent, make sure to file a feature request so that a supported configuration property can be added to Quarkus,"
-                    + " and more importantly so that the configuration property is tested regularly."
-                    + " Unsupported properties being set: %s",
-                    persistenceUnitName,
-                    persistenceUnitConfig.unsupportedProperties().keySet());
-        }
-        for (Map.Entry<String, String> entry : persistenceUnitConfig.unsupportedProperties().entrySet()) {
-            var key = entry.getKey();
-            if (runtimeSettingsBuilder.get(key) != null) {
-                log.warnf("Persistence-unit [%s] sets property '%s' to a custom value through '%s',"
-                        + " but Quarkus already set that property independently."
-                        + " The custom value will be ignored.",
-                        persistenceUnitName, key,
-                        HibernateOrmRuntimeConfig.puPropertyKey(persistenceUnitName, "unsupported-properties.\"" + key + "\""));
-                continue;
-            }
-            runtimeSettingsBuilder.put(entry.getKey(), entry.getValue());
-        }
-
-        var databaseOrmCompatibilityVersion = buildTimeSettings.getSource().getDatabaseOrmCompatibilityVersion();
-        var databaseOrmCompatibilitySettings = buildTimeSettings.getDatabaseOrmCompatibilitySettings();
-        if (databaseOrmCompatibilityVersion != DatabaseOrmCompatibilityVersion.LATEST) {
-            log.warnf("Persistence-unit [%1$s]: enabling best-effort backwards compatibility with '%2$s=%3$s'."
-                    + " Quarkus will attempt to change the behavior and expected schema of Hibernate ORM"
-                    + " to match those of Hibernate ORM %3$s."
-                    + " This is an inherently best-effort feature that cannot address all "
-                    + " backwards-incompatible changes of Hibernate ORM 6."
-                    + " It is also inherently unstable and may stop working in future versions of Quarkus."
-                    + " Consider migrating your application to native Hibernate ORM 6 behavior;"
-                    + " see https://github.com/quarkusio/quarkus/wiki/Migration-Guide-3.0:-Hibernate-ORM-5-to-6-migration for more information.",
-                    persistenceUnitName,
-                    HibernateOrmRuntimeConfig.puPropertyKey(persistenceUnitName, "database.orm-compatibility.version"),
-                    databaseOrmCompatibilityVersion.externalRepresentation,
-                    persistenceUnitConfig.unsupportedProperties().keySet());
-        }
-        for (Map.Entry<String, String> entry : databaseOrmCompatibilitySettings.entrySet()) {
-            var key = entry.getKey();
-            var value = entry.getValue();
-            if (!runtimeSettingsBuilder.isConfigured(key)) {
-                log.warnf("Persistence-unit [%1$s] - %2$s compatibility: setting '%3$s=%4$s'."
-                        + " This affects Hibernate ORM's behavior and schema compatibility"
-                        + " and may stop working in future versions of Quarkus.",
-                        persistenceUnitName,
-                        databaseOrmCompatibilityVersion.externalRepresentation,
-                        key, value);
-                runtimeSettingsBuilder.put(key, value);
-            }
-        }
-
-        return runtimeSettingsBuilder.build();
     }
 
     private StandardServiceRegistry rewireMetadataAndExtractServiceRegistry(String persistenceUnitName, RecordedState rs,
@@ -318,7 +264,7 @@ public final class FastBootHibernatePersistenceProvider implements PersistencePr
 
     private boolean isProvider(PersistenceUnitDescriptor persistenceUnit) {
         Map<Object, Object> props = Collections.emptyMap();
-        String requestedProviderName = extractRequestedProviderName(persistenceUnit, props);
+        String requestedProviderName = new ProviderName(log).extractRequestedProviderName(persistenceUnit, props, getClass());
         if (requestedProviderName == null) {
             // We'll always assume we are the best possible provider match unless the user
             // explicitly asks for a different one.
@@ -326,76 +272,6 @@ public final class FastBootHibernatePersistenceProvider implements PersistencePr
         }
         return FastBootHibernatePersistenceProvider.class.getName().equals(requestedProviderName)
                 || "org.hibernate.jpa.HibernatePersistenceProvider".equals(requestedProviderName);
-    }
-
-    @SuppressWarnings("rawtypes")
-    public static String extractRequestedProviderName(PersistenceUnitDescriptor persistenceUnit, Map integration) {
-        final String integrationProviderName = extractProviderName(integration);
-        if (integrationProviderName != null) {
-            log.debugf("Integration provided explicit PersistenceProvider [%s]", integrationProviderName);
-            return integrationProviderName;
-        }
-
-        final String persistenceUnitRequestedProvider = extractProviderName(persistenceUnit);
-        if (persistenceUnitRequestedProvider != null) {
-            log.debugf("Persistence-unit [%s] requested PersistenceProvider [%s]", persistenceUnit.getName(),
-                    persistenceUnitRequestedProvider);
-            return persistenceUnitRequestedProvider;
-        }
-
-        // NOTE : if no provider requested we assume we are the provider (the calls got
-        // to us somehow...)
-        log.debug("No PersistenceProvider explicitly requested, assuming Hibernate");
-        return FastBootHibernatePersistenceProvider.class.getName();
-    }
-
-    @SuppressWarnings("rawtypes")
-    private static String extractProviderName(Map integration) {
-        if (integration == null) {
-            return null;
-        }
-        final String setting = (String) integration.get(AvailableSettings.JAKARTA_PERSISTENCE_PROVIDER);
-        return setting == null ? null : setting.trim();
-    }
-
-    private static String extractProviderName(PersistenceUnitDescriptor persistenceUnit) {
-        final String persistenceUnitRequestedProvider = persistenceUnit.getProviderClassName();
-        return persistenceUnitRequestedProvider == null ? null : persistenceUnitRequestedProvider.trim();
-    }
-
-    @SuppressWarnings("rawtypes")
-    private void verifyProperties(Map properties) {
-        if (properties != null && properties.size() != 0) {
-            throw new PersistenceException(
-                    "The FastbootHibernateProvider PersistenceProvider can not support runtime provided properties. "
-                            + "Make sure you set all properties you need in the configuration resources before building the application.");
-        }
-    }
-
-    private static void injectDataSource(String persistenceUnitName, String dataSourceName,
-            RuntimeSettings.Builder runtimeSettingsBuilder) {
-        // first convert
-
-        if (runtimeSettingsBuilder.isConfigured(AvailableSettings.URL) ||
-                runtimeSettingsBuilder.isConfigured(AvailableSettings.DATASOURCE) ||
-                runtimeSettingsBuilder.isConfigured(AvailableSettings.JPA_JTA_DATASOURCE) ||
-                runtimeSettingsBuilder.isConfigured(AvailableSettings.JPA_NON_JTA_DATASOURCE) ||
-                runtimeSettingsBuilder.isConfigured(AvailableSettings.JAKARTA_JTA_DATASOURCE) ||
-                runtimeSettingsBuilder.isConfigured(AvailableSettings.JAKARTA_NON_JTA_DATASOURCE)) {
-            // the datasource has been defined in the persistence unit, we can bail out
-            return;
-        }
-
-        DataSource dataSource;
-        try {
-            dataSource = Arc.container().instance(DataSources.class).get().getDataSource(dataSourceName);
-            if (dataSource instanceof UnconfiguredDataSource) {
-                throw DataSourceUtil.dataSourceNotConfigured(dataSourceName);
-            }
-        } catch (RuntimeException e) {
-            throw PersistenceUnitUtil.unableToFindDataSource(persistenceUnitName, dataSourceName, e);
-        }
-        runtimeSettingsBuilder.put(AvailableSettings.DATASOURCE, dataSource);
     }
 
     private static void injectRuntimeConfiguration(HibernateOrmRuntimeConfigPersistenceUnit persistenceUnitConfig,
@@ -460,4 +336,65 @@ public final class FastBootHibernatePersistenceProvider implements PersistencePr
                 persistenceUnitConfig.flush().mode());
     }
 
+    @Override
+    public ProviderUtil getProviderUtil() {
+        return providerUtil;
+    }
+
+    @SuppressWarnings("rawtypes")
+    @Override
+    public EntityManagerFactory createContainerEntityManagerFactory(PersistenceUnitInfo info, Map properties) {
+        log.tracef("Starting createContainerEntityManagerFactory : %s", info.getPersistenceUnitName());
+
+        return getEntityManagerFactoryBuilder(info, properties).build();
+    }
+
+    @SuppressWarnings("rawtypes")
+    @Override
+    public void generateSchema(PersistenceUnitInfo info, Map map) {
+        log.tracef("Starting generateSchema : PUI.name=%s", info.getPersistenceUnitName());
+
+        final EntityManagerFactoryBuilder builder = getEntityManagerFactoryBuilder(info, map);
+        builder.generateSchema();
+    }
+
+    @SuppressWarnings("rawtypes")
+    @Override
+    public boolean generateSchema(String persistenceUnitName, Map map) {
+        log.tracef("Starting generateSchema for persistenceUnitName %s", persistenceUnitName);
+
+        final EntityManagerFactoryBuilder builder = getEntityManagerFactoryBuilderOrNull(persistenceUnitName, map);
+        if (builder == null) {
+            log.trace("Could not obtain matching EntityManagerFactoryBuilder, returning false");
+            return false;
+        }
+        builder.generateSchema();
+        return true;
+    }
+
+    private static void injectDataSource(String persistenceUnitName, String dataSourceName,
+            RuntimeSettings.Builder runtimeSettingsBuilder) {
+        // first convert
+
+        if (runtimeSettingsBuilder.isConfigured(AvailableSettings.URL) ||
+                runtimeSettingsBuilder.isConfigured(AvailableSettings.DATASOURCE) ||
+                runtimeSettingsBuilder.isConfigured(AvailableSettings.JPA_JTA_DATASOURCE) ||
+                runtimeSettingsBuilder.isConfigured(AvailableSettings.JPA_NON_JTA_DATASOURCE) ||
+                runtimeSettingsBuilder.isConfigured(AvailableSettings.JAKARTA_JTA_DATASOURCE) ||
+                runtimeSettingsBuilder.isConfigured(AvailableSettings.JAKARTA_NON_JTA_DATASOURCE)) {
+            // the datasource has been defined in the persistence unit, we can bail out
+            return;
+        }
+
+        DataSource dataSource;
+        try {
+            dataSource = Arc.container().instance(DataSources.class).get().getDataSource(dataSourceName);
+            if (dataSource instanceof UnconfiguredDataSource) {
+                throw DataSourceUtil.dataSourceNotConfigured(dataSourceName);
+            }
+        } catch (RuntimeException e) {
+            throw PersistenceUnitUtil.unableToFindDataSource(persistenceUnitName, dataSourceName, e);
+        }
+        runtimeSettingsBuilder.put(AvailableSettings.DATASOURCE, dataSource);
+    }
 }

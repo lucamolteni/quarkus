@@ -11,7 +11,6 @@ import java.util.Optional;
 import java.util.Set;
 
 import jakarta.persistence.EntityManagerFactory;
-import jakarta.persistence.PersistenceException;
 import jakarta.persistence.spi.PersistenceProvider;
 import jakarta.persistence.spi.PersistenceUnitInfo;
 import jakarta.persistence.spi.ProviderUtil;
@@ -33,7 +32,10 @@ import io.quarkus.arc.Arc;
 import io.quarkus.arc.InstanceHandle;
 import io.quarkus.datasource.common.runtime.DataSourceUtil;
 import io.quarkus.datasource.runtime.DataSourceSupport;
+import io.quarkus.hibernate.common.runtime.EntityManagerFactoryBuilderBuilder;
 import io.quarkus.hibernate.common.runtime.PersistenceUnitUtil;
+import io.quarkus.hibernate.common.runtime.ProviderName;
+import io.quarkus.hibernate.common.runtime.boot.QuarkusPersistenceUnitDescriptor;
 import io.quarkus.hibernate.orm.runtime.BuildTimeSettings;
 import io.quarkus.hibernate.orm.runtime.FastBootHibernatePersistenceProvider;
 import io.quarkus.hibernate.orm.runtime.HibernateOrmRuntimeConfig;
@@ -42,7 +44,6 @@ import io.quarkus.hibernate.orm.runtime.IntegrationSettings;
 import io.quarkus.hibernate.orm.runtime.PersistenceUnitsHolder;
 import io.quarkus.hibernate.orm.runtime.RuntimeSettings;
 import io.quarkus.hibernate.orm.runtime.RuntimeSettings.Builder;
-import io.quarkus.hibernate.orm.runtime.boot.QuarkusPersistenceUnitDescriptor;
 import io.quarkus.hibernate.orm.runtime.integration.HibernateOrmIntegrationRuntimeDescriptor;
 import io.quarkus.hibernate.orm.runtime.integration.HibernateOrmIntegrationRuntimeInitListener;
 import io.quarkus.hibernate.orm.runtime.recording.PrevalidatedQuarkusMetadata;
@@ -63,9 +64,9 @@ public final class FastBootHibernateReactivePersistenceProvider implements Persi
 
     private static final Logger log = Logger.getLogger(FastBootHibernateReactivePersistenceProvider.class);
 
-    public static final String IMPLEMENTATION_NAME = "org.hibernate.reactive.provider.ReactivePersistenceProvider";
-
     private final ProviderUtil providerUtil = new io.quarkus.hibernate.orm.runtime.ProviderUtil();
+
+    public static final String IMPLEMENTATION_NAME = "org.hibernate.reactive.provider.ReactivePersistenceProvider";
 
     private final HibernateOrmRuntimeConfig hibernateOrmRuntimeConfig;
     private final Map<String, List<HibernateOrmIntegrationRuntimeDescriptor>> integrationRuntimeDescriptors;
@@ -103,31 +104,20 @@ public final class FastBootHibernateReactivePersistenceProvider implements Persi
 
     private EntityManagerFactoryBuilder getEntityManagerFactoryBuilderOrNull(String persistenceUnitName,
             Map properties) {
+        EntityManagerFactoryBuilderBuilder entityManagerFactoryBuilderBuilder = new EntityManagerFactoryBuilderBuilder(log);
+
         log.tracef("Attempting to obtain correct EntityManagerFactoryBuilder for persistenceUnitName : %s",
                 persistenceUnitName);
 
-        verifyProperties(properties);
+        entityManagerFactoryBuilderBuilder.verifyPropertiesPresence(properties);
 
         // These are pre-parsed during image generation:
         final List<QuarkusPersistenceUnitDescriptor> units = PersistenceUnitsHolder.getPersistenceUnitDescriptors();
 
-        log.debugf("Located %s persistence units; checking each", units.size());
-
-        if (persistenceUnitName == null && units.size() > 1) {
-            // no persistence-unit name to look for was given and we found multiple
-            // persistence-units
-            throw new PersistenceException("No name provided and multiple persistence units found");
-        }
+        entityManagerFactoryBuilderBuilder.validatePersistenceUnitSizeOnlyOne(persistenceUnitName, units);
 
         for (QuarkusPersistenceUnitDescriptor persistenceUnit : units) {
-            log.debugf(
-                    "Checking persistence-unit [name=%s, explicit-provider=%s] against incoming persistence unit name [%s]",
-                    persistenceUnit.getName(), persistenceUnit.getProviderClassName(), persistenceUnitName);
-
-            final boolean matches = persistenceUnitName == null
-                    || persistenceUnit.getName().equals(persistenceUnitName);
-            if (!matches) {
-                log.debugf("Excluding from consideration '%s' due to name mismatch", persistenceUnit.getName());
+            if (entityManagerFactoryBuilderBuilder.notSameName(persistenceUnitName, persistenceUnit)) {
                 continue;
             }
 
@@ -140,16 +130,15 @@ public final class FastBootHibernateReactivePersistenceProvider implements Persi
             RecordedState recordedState = PersistenceUnitsHolder.popRecordedState(persistenceUnitName);
 
             final PrevalidatedQuarkusMetadata metadata = recordedState.getMetadata();
-            final BuildTimeSettings buildTimeSettings = recordedState.getBuildTimeSettings();
-            final IntegrationSettings integrationSettings = recordedState.getIntegrationSettings();
-            RuntimeSettings.Builder runtimeSettingsBuilder = new RuntimeSettings.Builder(buildTimeSettings,
-                    integrationSettings);
-
             var puConfig = hibernateOrmRuntimeConfig.persistenceUnits().get(persistenceUnit.getConfigurationName());
             if (puConfig.active().isPresent() && !puConfig.active().get()) {
                 throw new IllegalStateException(
                         "Attempting to boot a deactivated Hibernate Reactive persistence unit");
             }
+            final BuildTimeSettings buildTimeSettings = recordedState.getBuildTimeSettings();
+            final IntegrationSettings integrationSettings = recordedState.getIntegrationSettings();
+            RuntimeSettings.Builder runtimeSettingsBuilder = new RuntimeSettings.Builder(buildTimeSettings,
+                    integrationSettings);
 
             // Inject runtime configuration if the persistence unit was defined by Quarkus configuration
             if (!recordedState.isFromPersistenceXml()) {
@@ -192,7 +181,7 @@ public final class FastBootHibernateReactivePersistenceProvider implements Persi
             RuntimeSettings runtimeSettings = runtimeSettingsBuilder.build();
 
             StandardServiceRegistry standardServiceRegistry = rewireMetadataAndExtractServiceRegistry(
-                    persistenceUnitName, recordedState, runtimeSettings, puConfig);
+                    persistenceUnitName, recordedState, puConfig, runtimeSettings);
 
             final Object cdiBeanManager = Arc.container().beanManager();
             final Object validatorFactory = Arc.container().instance("quarkus-hibernate-validator-factory").get();
@@ -210,7 +199,7 @@ public final class FastBootHibernateReactivePersistenceProvider implements Persi
     }
 
     private StandardServiceRegistry rewireMetadataAndExtractServiceRegistry(String persistenceUnitName, RecordedState rs,
-            RuntimeSettings runtimeSettings, HibernateOrmRuntimeConfigPersistenceUnit puConfig) {
+            HibernateOrmRuntimeConfigPersistenceUnit puConfig, RuntimeSettings runtimeSettings) {
         PreconfiguredReactiveServiceRegistryBuilder serviceRegistryBuilder = new PreconfiguredReactiveServiceRegistryBuilder(
                 persistenceUnitName, rs, puConfig);
 
@@ -247,19 +236,10 @@ public final class FastBootHibernateReactivePersistenceProvider implements Persi
         return standardServiceRegistry;
     }
 
-    @SuppressWarnings("rawtypes")
-    private void verifyProperties(Map properties) {
-        if (properties != null && properties.size() != 0) {
-            throw new PersistenceException(
-                    "The FastbootHibernateProvider PersistenceProvider can not support runtime provided properties. "
-                            + "Make sure you set all properties you need in the configuration resources before building the application.");
-        }
-    }
-
     private boolean isProvider(PersistenceUnitDescriptor persistenceUnit) {
         Map<Object, Object> props = Collections.emptyMap();
-        String requestedProviderName = FastBootHibernatePersistenceProvider.extractRequestedProviderName(persistenceUnit,
-                props);
+        String requestedProviderName = new ProviderName(log).extractRequestedProviderName(persistenceUnit,
+                props, getClass());
         if (requestedProviderName == null) {
             // We'll always assume we are the best possible provider match unless the user
             // explicitly asks for a different one.
@@ -269,39 +249,6 @@ public final class FastBootHibernateReactivePersistenceProvider implements Persi
                 || IMPLEMENTATION_NAME.equals(requestedProviderName)
                 || FastBootHibernatePersistenceProvider.class.getName().equals(requestedProviderName)
                 || "org.hibernate.jpa.HibernatePersistenceProvider".equals(requestedProviderName);
-    }
-
-    private void registerVertxAndPool(String persistenceUnitName,
-            RuntimeSettings runtimeSettings,
-            PreconfiguredReactiveServiceRegistryBuilder serviceRegistry) {
-        if (runtimeSettings.isConfigured(AvailableSettings.URL)) {
-            // the pool has been defined in the persistence unit, we can bail out
-            return;
-        }
-
-        // for now, we only support one pool but this will change
-        String datasourceName = DataSourceUtil.DEFAULT_DATASOURCE_NAME;
-        Pool pool;
-        try {
-            if (Arc.container().instance(DataSourceSupport.class).get().getInactiveNames().contains(datasourceName)) {
-                throw DataSourceUtil.dataSourceInactive(datasourceName);
-            }
-            InstanceHandle<Pool> poolHandle = Arc.container().instance(Pool.class);
-            if (!poolHandle.isAvailable()) {
-                throw new IllegalStateException("No pool has been defined for persistence unit " + persistenceUnitName);
-            }
-            pool = poolHandle.get();
-        } catch (RuntimeException e) {
-            throw PersistenceUnitUtil.unableToFindDataSource(persistenceUnitName, datasourceName, e);
-        }
-
-        serviceRegistry.addInitiator(new QuarkusReactiveConnectionPoolInitiator(pool));
-
-        InstanceHandle<Vertx> vertxHandle = Arc.container().instance(Vertx.class);
-        if (!vertxHandle.isAvailable()) {
-            throw new IllegalStateException("No Vert.x instance has been registered in ArC ?");
-        }
-        serviceRegistry.addInitiator(new VertxInstanceInitiator(vertxHandle.get()));
     }
 
     private static void injectRuntimeConfiguration(HibernateOrmRuntimeConfigPersistenceUnit persistenceUnitConfig,
@@ -406,4 +353,36 @@ public final class FastBootHibernateReactivePersistenceProvider implements Persi
         return true;
     }
 
+    private void registerVertxAndPool(String persistenceUnitName,
+            RuntimeSettings runtimeSettings,
+            PreconfiguredReactiveServiceRegistryBuilder serviceRegistry) {
+        if (runtimeSettings.isConfigured(AvailableSettings.URL)) {
+            // the pool has been defined in the persistence unit, we can bail out
+            return;
+        }
+
+        // for now, we only support one pool but this will change
+        String datasourceName = DataSourceUtil.DEFAULT_DATASOURCE_NAME;
+        Pool pool;
+        try {
+            if (Arc.container().instance(DataSourceSupport.class).get().getInactiveNames().contains(datasourceName)) {
+                throw DataSourceUtil.dataSourceInactive(datasourceName);
+            }
+            InstanceHandle<Pool> poolHandle = Arc.container().instance(Pool.class);
+            if (!poolHandle.isAvailable()) {
+                throw new IllegalStateException("No pool has been defined for persistence unit " + persistenceUnitName);
+            }
+            pool = poolHandle.get();
+        } catch (RuntimeException e) {
+            throw PersistenceUnitUtil.unableToFindDataSource(persistenceUnitName, datasourceName, e);
+        }
+
+        serviceRegistry.addInitiator(new QuarkusReactiveConnectionPoolInitiator(pool));
+
+        InstanceHandle<Vertx> vertxHandle = Arc.container().instance(Vertx.class);
+        if (!vertxHandle.isAvailable()) {
+            throw new IllegalStateException("No Vert.x instance has been registered in ArC ?");
+        }
+        serviceRegistry.addInitiator(new VertxInstanceInitiator(vertxHandle.get()));
+    }
 }

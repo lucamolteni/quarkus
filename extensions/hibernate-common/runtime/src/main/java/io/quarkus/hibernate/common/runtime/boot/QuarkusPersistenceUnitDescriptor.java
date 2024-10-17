@@ -1,4 +1,4 @@
-package io.quarkus.hibernate.orm.runtime.boot;
+package io.quarkus.hibernate.common.runtime.boot;
 
 import java.net.URL;
 import java.util.Collections;
