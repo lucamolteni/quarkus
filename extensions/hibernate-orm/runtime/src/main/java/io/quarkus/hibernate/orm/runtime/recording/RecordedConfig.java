@@ -4,7 +4,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
-import io.quarkus.hibernate.orm.runtime.config.DatabaseOrmCompatibilityVersion;
+import io.quarkus.hibernate.common.runtime.config.DatabaseOrmCompatibilityVersion;
 import io.quarkus.hibernate.orm.runtime.migration.MultiTenancyStrategy;
 import io.quarkus.runtime.annotations.RecordableConstructor;
 

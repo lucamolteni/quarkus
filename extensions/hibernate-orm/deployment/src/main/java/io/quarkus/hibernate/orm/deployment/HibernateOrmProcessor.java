@@ -109,9 +109,11 @@ import io.quarkus.deployment.recording.RecorderContext;
 import io.quarkus.deployment.util.IoUtil;
 import io.quarkus.deployment.util.ServiceUtil;
 import io.quarkus.hibernate.common.PersistenceUnit;
+import io.quarkus.hibernate.common.deployment.HibernateConfig;
+import io.quarkus.hibernate.common.deployment.HibernateOrmConfigPersistenceUnit;
+import io.quarkus.hibernate.common.deployment.HibernateOrmConfigPersistenceUnit.IdentifierQuotingStrategy;
 import io.quarkus.hibernate.common.runtime.PersistenceUnitUtil;
 import io.quarkus.hibernate.common.runtime.boot.QuarkusPersistenceUnitDescriptor;
-import io.quarkus.hibernate.orm.deployment.HibernateOrmConfigPersistenceUnit.IdentifierQuotingStrategy;
 import io.quarkus.hibernate.orm.deployment.integration.HibernateOrmIntegrationRuntimeConfiguredBuildItem;
 import io.quarkus.hibernate.orm.deployment.integration.HibernateOrmIntegrationStaticConfiguredBuildItem;
 import io.quarkus.hibernate.orm.deployment.spi.AdditionalJpaModelBuildItem;
@@ -1271,7 +1273,8 @@ public final class HibernateOrmProcessor {
         }
     }
 
-    public static Map<String, Set<String>> getModelClassesAndPackagesPerPersistenceUnits(HibernateOrmConfig hibernateOrmConfig,
+    public static Map<String, Set<String>> getModelClassesAndPackagesPerPersistenceUnits(
+            HibernateConfig hibernateOrmConfig,
             JpaModelBuildItem jpaModel, IndexView index, boolean enableDefaultPersistenceUnit) {
         Map<String, Set<String>> modelClassesAndPackagesPerPersistenceUnits = new HashMap<>();
 
@@ -1438,7 +1441,7 @@ public final class HibernateOrmProcessor {
         return pakkage + ".";
     }
 
-    private static boolean hasPackagesInQuarkusConfig(HibernateOrmConfig hibernateOrmConfig) {
+    private static boolean hasPackagesInQuarkusConfig(HibernateConfig hibernateOrmConfig) {
         for (HibernateOrmConfigPersistenceUnit persistenceUnitConfig : hibernateOrmConfig.persistenceUnits()
                 .values()) {
             if (persistenceUnitConfig.packages().isPresent()) {

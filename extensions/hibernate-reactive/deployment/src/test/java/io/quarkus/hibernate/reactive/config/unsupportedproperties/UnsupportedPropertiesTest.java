@@ -34,21 +34,22 @@ public class UnsupportedPropertiesTest {
                     .addClass(SpyingIdentifierGeneratorEntity.class)
                     .addClass(SettingsSpyingIdentifierGenerator.class))
             .withConfigurationResource("application.properties")
-            .overrideConfigKey("quarkus.hibernate-orm.jdbc.statement-batch-size", "10")
+            .overrideConfigKey("quarkus.hibernate-reactive.jdbc.statement-batch-size", "10")
             // This should be taken into account by Hibernate ORM
-            .overrideConfigKey("quarkus.hibernate-orm.unsupported-properties.\"" + AvailableSettings.ORDER_INSERTS + "\"",
+            .overrideConfigKey("quarkus.hibernate-reactive.unsupported-properties.\"" + AvailableSettings.ORDER_INSERTS + "\"",
                     "true")
             // This is just to test a property set at build time
-            .overrideConfigKey("quarkus.hibernate-orm.unsupported-properties.\"hibernate.some.unknown.key.static-and-runtime\"",
+            .overrideConfigKey(
+                    "quarkus.hibernate-reactive.unsupported-properties.\"hibernate.some.unknown.key.static-and-runtime\"",
                     "some-value-1")
             // This is just to test a property set at runtime, which would not be available during the build
             // (or even during static init with native applications).
             .overrideRuntimeConfigKey(
-                    "quarkus.hibernate-orm.unsupported-properties.\"hibernate.some.unknown.key.runtime-only\"",
+                    "quarkus.hibernate-reactive.unsupported-properties.\"hibernate.some.unknown.key.runtime-only\"",
                     "some-value-2")
             // This should be ignored with a warning
             .overrideConfigKey(
-                    "quarkus.hibernate-orm.unsupported-properties.\"" + AvailableSettings.JAKARTA_HBM2DDL_DATABASE_ACTION
+                    "quarkus.hibernate-reactive.unsupported-properties.\"" + AvailableSettings.JAKARTA_HBM2DDL_DATABASE_ACTION
                             + "\"",
                     "drop-and-create")
             // Expect warnings on startup
@@ -73,7 +74,7 @@ public class UnsupportedPropertiesTest {
                         .contains(
                                 "Persistence-unit [default-reactive] sets property '"
                                         + AvailableSettings.JAKARTA_HBM2DDL_DATABASE_ACTION
-                                        + "' to a custom value through 'quarkus.hibernate-orm.unsupported-properties.\""
+                                        + "' to a custom value through 'quarkus.hibernate-reactive.unsupported-properties.\""
                                         + AvailableSettings.JAKARTA_HBM2DDL_DATABASE_ACTION + "\"'",
                                 "Quarkus already set that property independently",
                                 "The custom value will be ignored"));

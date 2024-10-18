@@ -4,7 +4,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.OptionalInt;
 
-import io.quarkus.hibernate.orm.deployment.HibernateOrmConfigPersistenceUnit.HibernateOrmConfigPersistenceUnitCache;
+import io.quarkus.hibernate.common.deployment.HibernateOrmConfigPersistenceUnit;
+import io.quarkus.hibernate.common.deployment.HibernateOrmConfigPersistenceUnit.HibernateOrmConfigPersistenceUnitCache;
 
 public class HibernateConfigUtil {
 

@@ -23,8 +23,8 @@ public class TimezoneDefaultStorageNormalizeTest extends AbstractTimezoneDefault
                     .addClasses(EntityWithTimezones.class)
                     .addClasses(SchemaUtil.class))
             .withConfigurationResource("application.properties")
-            .overrideConfigKey("quarkus.hibernate-orm.mapping.timezone.default-storage", "normalize")
-            .overrideConfigKey("quarkus.hibernate-orm.jdbc.timezone", JDBC_TIMEZONE.getId());
+            .overrideConfigKey("quarkus.hibernate-reactive.mapping.timezone.default-storage", "normalize")
+            .overrideConfigKey("quarkus.hibernate-reactive.jdbc.timezone", JDBC_TIMEZONE.getId());
 
     @Test
     public void schema() {

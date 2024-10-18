@@ -1,4 +1,4 @@
-package io.quarkus.hibernate.orm.runtime.config;
+package io.quarkus.hibernate.common.runtime.config;
 
 import java.util.Arrays;
 import java.util.HashMap;

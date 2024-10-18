@@ -29,7 +29,7 @@ public class SinglePersistenceUnitPackageConfigurationTest {
                     .addPackage(EntityIncludedThroughPackageConfig.class.getPackage().getName())
                     .addPackage(ExcludedEntity.class.getPackage().getName()))
             .withConfigurationResource("application.properties")
-            .overrideConfigKey("quarkus.hibernate-orm.packages",
+            .overrideConfigKey("quarkus.hibernate-reactive.packages",
                     EntityIncludedThroughPackageConfig.class.getPackage().getName())
             // Expect a warning on startup
             .setLogRecordPredicate(

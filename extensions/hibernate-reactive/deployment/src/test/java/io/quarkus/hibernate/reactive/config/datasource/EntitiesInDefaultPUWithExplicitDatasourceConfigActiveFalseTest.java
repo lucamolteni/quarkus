@@ -16,8 +16,8 @@ public class EntitiesInDefaultPUWithExplicitDatasourceConfigActiveFalseTest {
     static QuarkusUnitTest runner = new QuarkusUnitTest()
             .withApplicationRoot((jar) -> jar
                     .addClass(MyEntity.class))
-            .overrideConfigKey("quarkus.hibernate-orm.datasource", "ds-1")
-            .overrideConfigKey("quarkus.hibernate-orm.database.generation", "drop-and-create")
+            .overrideConfigKey("quarkus.hibernate-reactive.datasource", "ds-1")
+            .overrideConfigKey("quarkus.hibernate-reactive.database.generation", "drop-and-create")
             .overrideConfigKey("quarkus.datasource.\"ds-1\".active", "false")
             // We need at least one build-time property for the datasource,
             // otherwise it's considered unconfigured at build time...

@@ -20,7 +20,7 @@ public class TimezoneDefaultStorageNormalizeUtcTest extends AbstractTimezoneDefa
                     .addClasses(EntityWithTimezones.class)
                     .addClasses(SchemaUtil.class))
             .withConfigurationResource("application.properties")
-            .overrideConfigKey("quarkus.hibernate-orm.mapping.timezone.default-storage", "normalize-utc");
+            .overrideConfigKey("quarkus.hibernate-reactive.mapping.timezone.default-storage", "normalize-utc");
 
     @Test
     public void schema() {

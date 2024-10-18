@@ -16,8 +16,8 @@ public class EntitiesInDefaultPUWithExplicitDatasourceMissingTest {
     static QuarkusUnitTest runner = new QuarkusUnitTest()
             .withApplicationRoot((jar) -> jar
                     .addClass(MyEntity.class))
-            .overrideConfigKey("quarkus.hibernate-orm.datasource", "ds-1")
-            .overrideConfigKey("quarkus.hibernate-orm.database.generation", "drop-and-create")
+            .overrideConfigKey("quarkus.hibernate-reactive.datasource", "ds-1")
+            .overrideConfigKey("quarkus.hibernate-reactive.database.generation", "drop-and-create")
             .assertException(t -> assertThat(t)
                     .isInstanceOf(ConfigurationException.class)
                     .hasMessageContainingAll(

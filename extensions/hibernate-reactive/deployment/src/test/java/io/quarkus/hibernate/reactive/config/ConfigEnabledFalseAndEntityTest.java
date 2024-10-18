@@ -20,7 +20,7 @@ public class ConfigEnabledFalseAndEntityTest {
             .withApplicationRoot(jar -> jar.addClass(MyEntity.class))
             .withConfigurationResource("application.properties")
             // This should disable Hibernate Reactive even if there is an entity
-            .overrideConfigKey("quarkus.hibernate-orm.enabled", "false");
+            .overrideConfigKey("quarkus.hibernate-reactive.enabled", "false");
 
     @Test
     public void entityManagerFactory() {

@@ -2,8 +2,6 @@ package io.quarkus.hibernate.reactive.deployment;
 
 import java.util.function.BooleanSupplier;
 
-import io.quarkus.hibernate.orm.deployment.HibernateOrmConfig;
-
 /**
  * Supplier that can be used to only run build steps
  * if the Hibernate ORM extension is enabled.
@@ -14,11 +12,12 @@ import io.quarkus.hibernate.orm.deployment.HibernateOrmConfig;
 //  and that's a lot of work that will conflict with other ongoing changes,
 //  so we better wait.
 //  See also https://github.com/quarkusio/quarkus/issues/13425
+// TODO Luca remove this
 public class HibernateReactiveEnabled implements BooleanSupplier {
 
-    private final HibernateOrmConfig config;
+    private final HibernateReactiveConfig config;
 
-    HibernateReactiveEnabled(HibernateOrmConfig config) {
+    HibernateReactiveEnabled(HibernateReactiveConfig config) {
         this.config = config;
     }
 

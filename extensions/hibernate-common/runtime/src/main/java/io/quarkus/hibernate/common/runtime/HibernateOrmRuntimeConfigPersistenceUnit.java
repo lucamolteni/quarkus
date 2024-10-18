@@ -1,4 +1,4 @@
-package io.quarkus.hibernate.orm.runtime;
+package io.quarkus.hibernate.common.runtime;
 
 import java.util.Map;
 import java.util.Optional;

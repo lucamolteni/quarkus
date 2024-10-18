@@ -1,4 +1,4 @@
-package io.quarkus.hibernate.orm.runtime;
+package io.quarkus.hibernate.reactive.runtime;
 
 import java.util.Map;
 
@@ -13,9 +13,9 @@ import io.smallrye.config.WithDefaults;
 import io.smallrye.config.WithParentName;
 import io.smallrye.config.WithUnnamedKey;
 
-@ConfigMapping(prefix = "quarkus.hibernate-orm")
+@ConfigMapping(prefix = "quarkus.hibernate-reactive")
 @ConfigRoot(phase = ConfigPhase.RUN_TIME)
-public interface HibernateOrmRuntimeConfig extends HibernateRuntimeConfig {
+public interface HibernateReactiveRuntimeConfig extends HibernateRuntimeConfig {
 
     /**
      * Configuration for persistence units.
@@ -28,13 +28,13 @@ public interface HibernateOrmRuntimeConfig extends HibernateRuntimeConfig {
     Map<String, HibernateOrmRuntimeConfigPersistenceUnit> persistenceUnits();
 
     static String extensionPropertyKey(String radical) {
-        return "quarkus.hibernate-orm." + radical;
+        return "quarkus.hibernate-reactive." + radical;
     }
 
     static String puPropertyKey(String puName, String radical) {
         String prefix = PersistenceUnitUtil.isDefaultPersistenceUnit(puName)
-                ? "quarkus.hibernate-orm."
-                : "quarkus.hibernate-orm.\"" + puName + "\".";
+                ? "quarkus.hibernate-reactive."
+                : "quarkus.hibernate-reactive.\"" + puName + "\".";
         return prefix + radical;
     }
 }

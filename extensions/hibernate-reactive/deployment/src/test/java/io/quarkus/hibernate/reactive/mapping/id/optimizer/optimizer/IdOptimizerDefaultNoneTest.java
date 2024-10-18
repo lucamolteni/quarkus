@@ -20,7 +20,7 @@ public class IdOptimizerDefaultNoneTest extends AbstractIdOptimizerDefaultTest {
                             EntityWithGenericGeneratorAndPooledLoOptimizer.class)
                     .addClasses(SchemaUtil.class))
             .withConfigurationResource("application.properties")
-            .overrideConfigKey("quarkus.hibernate-orm.mapping.id.optimizer.default", "none");
+            .overrideConfigKey("quarkus.hibernate-reactive.mapping.id.optimizer.default", "none");
 
     @Override
     @Test

@@ -1,4 +1,4 @@
-package io.quarkus.hibernate.orm.deployment;
+package io.quarkus.hibernate.common.deployment;
 
 import java.nio.charset.Charset;
 import java.time.Duration;

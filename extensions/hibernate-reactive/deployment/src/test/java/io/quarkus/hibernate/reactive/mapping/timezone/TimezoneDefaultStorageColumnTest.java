@@ -18,7 +18,7 @@ public class TimezoneDefaultStorageColumnTest extends AbstractTimezoneDefaultSto
                     .addClasses(EntityWithTimezones.class)
                     .addClasses(SchemaUtil.class))
             .withConfigurationResource("application.properties")
-            .overrideConfigKey("quarkus.hibernate-orm.mapping.timezone.default-storage", "column");
+            .overrideConfigKey("quarkus.hibernate-reactive.mapping.timezone.default-storage", "column");
 
     @Test
     public void schema() {

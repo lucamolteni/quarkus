@@ -17,7 +17,7 @@ public class IdOptimizerDefaultPooledLoTest extends AbstractIdOptimizerDefaultTe
                             EntityWithGenericGeneratorAndPooledLoOptimizer.class)
                     .addClasses(SchemaUtil.class))
             .withConfigurationResource("application.properties")
-            .overrideConfigKey("quarkus.hibernate-orm.mapping.id.optimizer.default", "pooled-lo");
+            .overrideConfigKey("quarkus.hibernate-reactive.mapping.id.optimizer.default", "pooled-lo");
 
     @Override
     Class<?> defaultOptimizerType() {

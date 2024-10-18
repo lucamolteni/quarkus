@@ -33,13 +33,12 @@ import io.quarkus.arc.InstanceHandle;
 import io.quarkus.datasource.common.runtime.DataSourceUtil;
 import io.quarkus.datasource.runtime.DataSourceSupport;
 import io.quarkus.hibernate.common.runtime.EntityManagerFactoryBuilderBuilder;
+import io.quarkus.hibernate.common.runtime.HibernateOrmRuntimeConfigPersistenceUnit;
 import io.quarkus.hibernate.common.runtime.PersistenceUnitUtil;
 import io.quarkus.hibernate.common.runtime.ProviderName;
 import io.quarkus.hibernate.common.runtime.boot.QuarkusPersistenceUnitDescriptor;
 import io.quarkus.hibernate.orm.runtime.BuildTimeSettings;
 import io.quarkus.hibernate.orm.runtime.FastBootHibernatePersistenceProvider;
-import io.quarkus.hibernate.orm.runtime.HibernateOrmRuntimeConfig;
-import io.quarkus.hibernate.orm.runtime.HibernateOrmRuntimeConfigPersistenceUnit;
 import io.quarkus.hibernate.orm.runtime.IntegrationSettings;
 import io.quarkus.hibernate.orm.runtime.PersistenceUnitsHolder;
 import io.quarkus.hibernate.orm.runtime.RuntimeSettings;
@@ -68,10 +67,10 @@ public final class FastBootHibernateReactivePersistenceProvider implements Persi
 
     public static final String IMPLEMENTATION_NAME = "org.hibernate.reactive.provider.ReactivePersistenceProvider";
 
-    private final HibernateOrmRuntimeConfig hibernateOrmRuntimeConfig;
+    private final HibernateReactiveRuntimeConfig hibernateOrmRuntimeConfig;
     private final Map<String, List<HibernateOrmIntegrationRuntimeDescriptor>> integrationRuntimeDescriptors;
 
-    public FastBootHibernateReactivePersistenceProvider(HibernateOrmRuntimeConfig hibernateOrmRuntimeConfig,
+    public FastBootHibernateReactivePersistenceProvider(HibernateReactiveRuntimeConfig hibernateOrmRuntimeConfig,
             Map<String, List<HibernateOrmIntegrationRuntimeDescriptor>> integrationRuntimeDescriptors) {
         this.hibernateOrmRuntimeConfig = hibernateOrmRuntimeConfig;
         this.integrationRuntimeDescriptors = integrationRuntimeDescriptors;
@@ -171,7 +170,7 @@ public final class FastBootHibernateReactivePersistenceProvider implements Persi
                             + " but Quarkus already set that property independently."
                             + " The custom value will be ignored.",
                             persistenceUnitName, key,
-                            HibernateOrmRuntimeConfig.puPropertyKey(persistenceUnit.getConfigurationName(),
+                            HibernateReactiveRuntimeConfig.puPropertyKey(persistenceUnit.getConfigurationName(),
                                     "unsupported-properties.\"" + key + "\""));
                     continue;
                 }

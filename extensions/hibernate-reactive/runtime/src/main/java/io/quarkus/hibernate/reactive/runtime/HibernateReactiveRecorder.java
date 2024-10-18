@@ -3,7 +3,6 @@ package io.quarkus.hibernate.reactive.runtime;
 import java.util.List;
 import java.util.Map;
 
-import io.quarkus.hibernate.orm.runtime.HibernateOrmRuntimeConfig;
 import io.quarkus.hibernate.orm.runtime.integration.HibernateOrmIntegrationRuntimeDescriptor;
 import io.quarkus.runtime.annotations.Recorder;
 
@@ -19,9 +18,9 @@ public class HibernateReactiveRecorder {
         HibernateReactive.featureInit(enabled);
     }
 
-    public void initializePersistenceProvider(HibernateOrmRuntimeConfig hibernateOrmRuntimeConfig,
+    public void initializePersistenceProvider(HibernateReactiveRuntimeConfig hibernateReactiveRuntimeConfig,
             Map<String, List<HibernateOrmIntegrationRuntimeDescriptor>> integrationRuntimeDescriptors) {
-        ReactivePersistenceProviderSetup.registerRuntimePersistenceProvider(hibernateOrmRuntimeConfig,
+        ReactivePersistenceProviderSetup.registerRuntimePersistenceProvider(hibernateReactiveRuntimeConfig,
                 integrationRuntimeDescriptors);
     }
 

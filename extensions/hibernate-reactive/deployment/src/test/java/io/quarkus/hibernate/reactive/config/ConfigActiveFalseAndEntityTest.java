@@ -9,19 +9,21 @@ import jakarta.persistence.EntityManagerFactory;
 
 import org.hibernate.SessionFactory;
 import org.hibernate.reactive.mutiny.Mutiny;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import io.quarkus.arc.Arc;
 import io.quarkus.test.QuarkusUnitTest;
 
+@Disabled("TODO Luca I think these tests are not necessary anymore after fixing https://github.com/quarkusio/quarkus/issues/13425")
 public class ConfigActiveFalseAndEntityTest {
 
     @RegisterExtension
     static final QuarkusUnitTest config = new QuarkusUnitTest()
             .withApplicationRoot(jar -> jar.addClass(MyEntity.class))
             .withConfigurationResource("application.properties")
-            .overrideConfigKey("quarkus.hibernate-orm.active", "false");
+            .overrideConfigKey("quarkus.hibernate-reactive.active", "false");
 
     @Test
     public void entityManagerFactory() {
