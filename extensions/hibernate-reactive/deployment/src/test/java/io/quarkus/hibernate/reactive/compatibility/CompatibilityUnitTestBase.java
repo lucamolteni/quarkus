@@ -8,9 +8,7 @@ import java.util.Optional;
 import jakarta.persistence.EntityManager;
 
 import org.hibernate.SessionFactory;
-import org.hibernate.engine.spi.SessionFactoryImplementor;
 import org.hibernate.reactive.mutiny.Mutiny;
-import org.hibernate.reactive.session.impl.ReactiveSessionFactoryImpl;
 
 import io.quarkus.arc.Arc;
 import io.quarkus.hibernate.reactive.entities.Hero;
@@ -59,7 +57,7 @@ public abstract class CompatibilityUnitTestBase {
 
     public void testBlockingDisabled() {
         SessionFactory sessionFactory = Arc.container().instance(SessionFactory.class).get();
-        SessionFactoryImplementor unwrapped = sessionFactory.unwrap(SessionFactoryImplementor.class);
-        assertThat(unwrapped).isInstanceOf(ReactiveSessionFactoryImpl.class);
+
+        assertThat(sessionFactory).isNull();
     }
 }

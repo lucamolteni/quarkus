@@ -175,6 +175,7 @@ public class HibernateOrmCdiProcessor {
         }
 
         // we have only one persistence unit defined in a persistence.xml: we make it the default even if it has a name
+        // NOTE: In this case we know we're not using Hibernate Reactive, because it doesn't support persistence.xml.
         if (persistenceUnitDescriptors.size() == 1 && persistenceUnitDescriptors.get(0).isFromPersistenceXml()) {
             String persistenceUnitName = persistenceUnitDescriptors.get(0).getPersistenceUnitName();
 
@@ -186,32 +187,32 @@ public class HibernateOrmCdiProcessor {
                             .addInjectionPoint(ClassType.create(DotName.createSimple(JPAConfig.class)))
                             .done());
 
-            if (capabilities.isPresent(Capability.TRANSACTIONS)
-                    && capabilities.isMissing(Capability.HIBERNATE_REACTIVE)) {
-                // Do register a Session/EntityManager bean only if JTA is available
-                // Note that the Hibernate Reactive extension excludes JTA intentionally
-                syntheticBeanBuildItemBuildProducer
-                        .produce(createSyntheticBean(persistenceUnitName,
-                                true, true,
-                                Session.class, SESSION_EXPOSED_TYPES, false)
-                                .createWith(recorder.sessionSupplier(persistenceUnitName))
-                                .addInjectionPoint(ClassType.create(DotName.createSimple(TransactionSessions.class)))
-                                .done());
+            syntheticBeanBuildItemBuildProducer
+                    .produce(createSyntheticBean(persistenceUnitName,
+                            true, true,
+                            Session.class, SESSION_EXPOSED_TYPES, false)
+                            .createWith(recorder.sessionSupplier(persistenceUnitName))
+                            .addInjectionPoint(ClassType.create(DotName.createSimple(TransactionSessions.class)))
+                            .done());
 
-                // same for StatelessSession
-                syntheticBeanBuildItemBuildProducer
-                        .produce(createSyntheticBean(persistenceUnitName,
-                                true, true,
-                                StatelessSession.class, STATELESS_SESSION_EXPOSED_TYPES, false)
-                                .createWith(recorder.statelessSessionSupplier(persistenceUnitName))
-                                .addInjectionPoint(ClassType.create(DotName.createSimple(TransactionSessions.class)))
-                                .done());
-            }
+            syntheticBeanBuildItemBuildProducer
+                    .produce(createSyntheticBean(persistenceUnitName,
+                            true, true,
+                            StatelessSession.class, STATELESS_SESSION_EXPOSED_TYPES, false)
+                            .createWith(recorder.statelessSessionSupplier(persistenceUnitName))
+                            .addInjectionPoint(ClassType.create(DotName.createSimple(TransactionSessions.class)))
+                            .done());
             return;
         }
 
-        Set<String> createdSessionFactory = new HashSet<>();
         for (PersistenceUnitDescriptorBuildItem persistenceUnitDescriptor : persistenceUnitDescriptors) {
+            // We want to register (blocking) SessionFactory/Session/EntityManager beans
+            // for blocking persistence units only.
+            // The Hibernate Reactive extension handles CDI beans that are specific to Hibernate Reactive.
+            if (persistenceUnitDescriptor.isReactive()) {
+                continue;
+            }
+
             String persistenceUnitName = persistenceUnitDescriptor.getPersistenceUnitName();
             // Hibernate Reactive does not use the same name for its default persistence unit,
             // but we still want to use the @Default qualifier for that PU.
@@ -219,52 +220,33 @@ public class HibernateOrmCdiProcessor {
             String persistenceUnitConfigName = persistenceUnitDescriptor.getConfigurationName();
             boolean isDefaultPU = PersistenceUnitUtil.isDefaultPersistenceUnit(persistenceUnitConfigName);
             boolean isNamedPU = !isDefaultPU;
-            boolean isReactive = persistenceUnitDescriptor.isReactive();
 
-            ExtendedBeanConfigurator persistenceUnitBean = createSyntheticBean(persistenceUnitName,
-                    isDefaultPU,
-                    isNamedPU,
-                    SessionFactory.class,
-                    SESSION_FACTORY_EXPOSED_TYPES,
-                    true);
+            syntheticBeanBuildItemBuildProducer
+                    .produce(createSyntheticBean(persistenceUnitName,
+                            isDefaultPU,
+                            isNamedPU,
+                            SessionFactory.class,
+                            SESSION_FACTORY_EXPOSED_TYPES,
+                            true)
+                            .createWith(recorder.sessionFactorySupplier(persistenceUnitName))
+                            .addInjectionPoint(ClassType.create(DotName.createSimple(JPAConfig.class)))
+                            .done());
 
-            // A few cases here:
-            // - We only have a PersistenceUnitDescriptorBuildItem, and it's blocking, we create the SessionFactory
-            // - We only have a PersistenceUnitDescriptorBuildItem, and it's reactive, we create the Blocking SessionFactory anyway, as it might be used
-            //   to gather metadata such as the configuration from it see io/quarkus/hibernate/reactive/compatbility/CompatibilityUnitTestBase.testBlockingDisabled
-            //   The Mutiny.SessionFactory API doesn't expose every method the Hibernate SessionFactory does, hence this hack
-            // - We have multiple PersistenceUnitDescriptorBuildItem, (Reactive + Hibernate scenario), we want to make sure this is created only once
-            //   with the correct info from the blocking PersistenceUnitDescriptorBuildItem
-            if (!createdSessionFactory.contains(persistenceUnitName)
-                    && (!isReactive || persistenceUnitDescriptors.size() == 1)) {
-                syntheticBeanBuildItemBuildProducer
-                        .produce(persistenceUnitBean
-                                .createWith(recorder.sessionFactorySupplier(persistenceUnitName))
-                                .addInjectionPoint(ClassType.create(DotName.createSimple(JPAConfig.class)))
-                                .done());
-            }
+            syntheticBeanBuildItemBuildProducer
+                    .produce(createSyntheticBean(persistenceUnitName,
+                            isDefaultPU, isNamedPU,
+                            Session.class, SESSION_EXPOSED_TYPES, false)
+                            .createWith(recorder.sessionSupplier(persistenceUnitName))
+                            .addInjectionPoint(ClassType.create(DotName.createSimple(TransactionSessions.class)))
+                            .done());
 
-            if (capabilities.isPresent(Capability.TRANSACTIONS)
-                    && capabilities.isMissing(Capability.HIBERNATE_REACTIVE)) {
-                // Do register a Session/EntityManager bean only if JTA is available
-                // Note that the Hibernate Reactive extension excludes JTA intentionally
-                syntheticBeanBuildItemBuildProducer
-                        .produce(createSyntheticBean(persistenceUnitName,
-                                isDefaultPU, isNamedPU,
-                                Session.class, SESSION_EXPOSED_TYPES, false)
-                                .createWith(recorder.sessionSupplier(persistenceUnitName))
-                                .addInjectionPoint(ClassType.create(DotName.createSimple(TransactionSessions.class)))
-                                .done());
-
-                // same for StatelessSession
-                syntheticBeanBuildItemBuildProducer
-                        .produce(createSyntheticBean(persistenceUnitName,
-                                true, true,
-                                StatelessSession.class, STATELESS_SESSION_EXPOSED_TYPES, false)
-                                .createWith(recorder.statelessSessionSupplier(persistenceUnitName))
-                                .addInjectionPoint(ClassType.create(DotName.createSimple(TransactionSessions.class)))
-                                .done());
-            }
+            syntheticBeanBuildItemBuildProducer
+                    .produce(createSyntheticBean(persistenceUnitName,
+                            true, true,
+                            StatelessSession.class, STATELESS_SESSION_EXPOSED_TYPES, false)
+                            .createWith(recorder.statelessSessionSupplier(persistenceUnitName))
+                            .addInjectionPoint(ClassType.create(DotName.createSimple(TransactionSessions.class)))
+                            .done());
         }
     }
 
@@ -283,13 +265,12 @@ public class HibernateOrmCdiProcessor {
         List<Class<?>> unremovableClasses = new ArrayList<>();
         unremovableClasses.add(QuarkusArcBeanContainer.class);
 
-        if (capabilities.isMissing(Capability.HIBERNATE_REACTIVE)) {
-            // The following beans only make sense for Hibernate ORM, not for Hibernate Reactive
-
-            if (capabilities.isPresent(Capability.TRANSACTIONS)) {
-                unremovableClasses.add(TransactionManager.class);
-                unremovableClasses.add(TransactionSessions.class);
-            }
+        // The following beans only make sense for Hibernate ORM, not for Hibernate Reactive
+        // If transactions are missing, then the application is likely using Hibernate Reactive directly
+        // and is definitely not using Hibernate ORM.
+        if (capabilities.isPresent(Capability.TRANSACTIONS)) {
+            unremovableClasses.add(TransactionManager.class);
+            unremovableClasses.add(TransactionSessions.class);
             unremovableClasses.add(RequestScopedSessionHolder.class);
             unremovableClasses.add(RequestScopedStatelessSessionHolder.class);
         }
