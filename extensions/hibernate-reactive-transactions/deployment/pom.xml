@@ -10,6 +10,10 @@
     <artifactId>hibernate-reactive-transactions-deployment</artifactId>
     <name>Quarkus - Hibernate Reactive Transactions - Deployment</name>
 
+    <properties>
+        <postgres.reactive.url>vertx-reactive:postgresql://localhost:5431/hibernate_orm_test</postgres.reactive.url>
+    </properties>
+
     <dependencies>
         <dependency>
             <groupId>io.quarkus</groupId>
@@ -22,6 +26,38 @@
         <dependency>
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-junit5-internal</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-hibernate-reactive-deployment</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.hibernate.reactive</groupId>
+            <artifactId>hibernate-reactive-core</artifactId>
+            <exclusions>
+                <!-- Make sure Quarkus can manage Mutiny via quarkus-mutiny -->
+                <exclusion>
+                    <groupId>io.smallrye.reactive</groupId>
+                    <artifactId>mutiny</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <!-- TEST -->
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-test-vertx</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-reactive-pg-client-deployment</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>

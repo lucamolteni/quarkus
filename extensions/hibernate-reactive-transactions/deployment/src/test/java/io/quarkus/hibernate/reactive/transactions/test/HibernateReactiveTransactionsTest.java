@@ -1,23 +1,39 @@
 package io.quarkus.hibernate.reactive.transactions.test;
 
-import org.jboss.shrinkwrap.api.ShrinkWrap;
-import org.jboss.shrinkwrap.api.spec.JavaArchive;
-import org.junit.jupiter.api.Assertions;
+import static org.assertj.core.api.Assertions.assertThat;
+
+import jakarta.inject.Inject;
+
+import org.hibernate.reactive.mutiny.Mutiny;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import io.quarkus.test.QuarkusUnitTest;
+import io.quarkus.test.vertx.RunOnVertxContext;
+import io.quarkus.test.vertx.UniAsserter;
+import io.smallrye.mutiny.Uni;
 
 public class HibernateReactiveTransactionsTest {
 
-    // Start unit test with your extension loaded
     @RegisterExtension
-    static final QuarkusUnitTest unitTest = new QuarkusUnitTest()
-            .setArchiveProducer(() -> ShrinkWrap.create(JavaArchive.class));
+    static final QuarkusUnitTest config = new QuarkusUnitTest()
+            .withApplicationRoot((jar) -> jar
+                    .addClasses(Hero.class))
+            .withConfigurationResource("application.properties");
+
+    @Inject
+    Mutiny.SessionFactory entityManager;
 
     @Test
-    public void writeYourOwnUnitTest() {
-        // Write your unit tests here - see the testing extension guide https://quarkus.io/guides/writing-extensions#testing-extensions for more information
-        Assertions.assertTrue(true, "Add some assertions to " + getClass().getName());
+    @RunOnVertxContext
+    public void testReactive(UniAsserter asserter) {
+        Uni<Hero> hero = entityManager.withTransaction(s -> s.persist(new Hero("hero1")))
+                .flatMap(v -> entityManager.withTransaction(
+                        s -> s.createQuery("select h from Hero h where h.name = 'hero1'", Hero.class)
+                                .getSingleResult()));
+
+        asserter.assertThat(() -> hero, h -> assertThat("hero1").isEqualTo(h.name));
+
     }
+
 }
