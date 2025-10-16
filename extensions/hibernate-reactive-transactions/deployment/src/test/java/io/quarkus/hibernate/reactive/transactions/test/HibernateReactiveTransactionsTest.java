@@ -3,8 +3,8 @@ package io.quarkus.hibernate.reactive.transactions.test;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import jakarta.inject.Inject;
-
 import jakarta.transaction.Transactional;
+
 import org.hibernate.reactive.mutiny.Mutiny;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -19,7 +19,9 @@ public class HibernateReactiveTransactionsTest {
     @RegisterExtension
     static final QuarkusUnitTest config = new QuarkusUnitTest()
             .withApplicationRoot((jar) -> jar
-                    .addClasses(Hero.class))
+                    .addClasses(Hero.class)
+                    .addAsResource("initialTransactionData.sql", "import.sql")
+            )
             .withConfigurationResource("application.properties");
 
     @Inject
@@ -39,34 +41,37 @@ public class HibernateReactiveTransactionsTest {
 
     @Test
     @RunOnVertxContext
+    @Transactional
     public void testReactiveAnnotationTransaction(UniAsserter asserter) {
 
-        Uni<Hero> hero = entityManager.withSession(session -> {
-            return createHero(session, "initialName")
-                    .flatMap(id -> updateHero(session, id, "updatedName"))
-                    .flatMap(h -> findHero(session, h.id));
+        Long previousHeroId = 50L;
+
+        Uni<Object> failingUpdate = entityManager.withSession(session -> {
+                return updateHero(session, previousHeroId, "updatedName")
+                        .flatMap(o -> updateHero(session, previousHeroId, "updatedName2"))
+                        .flatMap(h -> {
+                            return Uni.createFrom().failure(new RuntimeException("Failing update"));
+                        }).onFailure().recoverWithNull();
+            });
+
+        Uni<Hero> refreshedHero =
+                failingUpdate.flatMap(id -> entityManager.withTransaction(session -> findHero(session, previousHeroId)));
+
+        asserter.assertThat(() -> refreshedHero, h -> {
+            assertThat(h.name).isEqualTo("initialName");
         });
 
-        asserter.assertThat(() -> hero, h -> assertThat("updatedName").isEqualTo(h.name));
-
     }
 
-    @Transactional
-    public Uni<Long> createHero(Mutiny.Session session, String name) {
-        Hero hero = new Hero(name);
-        return session.persist(hero).map(s -> hero.id);
-    }
-
-    @Transactional
     public Uni<Hero> updateHero(Mutiny.Session session, Long id, String newName) {
         return session.find(Hero.class, id)
                 .map(h -> {
+                    System.out.println("Updating hero to newName: " + newName);
                     h.setName(newName);
                     return h;
-                });
+                }).call(() -> session.flush());
     }
 
-    @Transactional
     public Uni<Hero> findHero(Mutiny.Session session, Long id) {
         return session.find(Hero.class, id);
     }
