@@ -36,18 +36,17 @@ public class HibernateReactiveTransactionsTest {
 
         Uni<Hero> failingUpdate = entityManager.withTransaction(session -> {
             return updateHero(session, previousHeroId, "updatedName")
-                    .flatMap(o -> updateHero(session, previousHeroId, "updatedName2"))
                     .onItem().invoke(h -> {
                         throw new RuntimeException("Failing update");
                     });
         });
 
-        Uni<Object> refreshedHero =
+        Uni<Hero> refreshedHero =
                 failingUpdate.onFailure().recoverWithNull()
                         .chain(id -> entityManager.withTransaction(session -> findHero(session, previousHeroId)));
 
         asserter.assertThat(() -> refreshedHero, h -> {
-            assertThat(((Hero)h).name).isEqualTo("initialName");
+            assertThat(h.name).isEqualTo("initialName");
         });
 
     }
@@ -61,18 +60,17 @@ public class HibernateReactiveTransactionsTest {
 
         Uni<Hero> failingUpdate = entityManager.withSession(session -> {
             return updateHero(session, previousHeroId, "updatedName")
-                    .flatMap(o -> updateHero(session, previousHeroId, "updatedName2"))
                     .onItem().invoke(h -> {
                         throw new RuntimeException("Failing update");
                     });
             });
 
-        Uni<Object> refreshedHero =
+        Uni<Hero> refreshedHero =
                 failingUpdate.onFailure().recoverWithNull()
                         .chain(id -> entityManager.withTransaction(session -> findHero(session, previousHeroId)));
 
         asserter.assertThat(() -> refreshedHero, h -> {
-            assertThat(((Hero)h).name).isEqualTo("initialName");
+            assertThat(h.name).isEqualTo("initialName");
         });
 
     }
@@ -80,14 +78,12 @@ public class HibernateReactiveTransactionsTest {
     public Uni<Hero> updateHero(Mutiny.Session session, Long id, String newName) {
         return session.find(Hero.class, id)
                 .map(h -> {
-                    System.out.println("Updating hero to newName: " + newName + " with session:  " + session + " with transaction " + session.currentTransaction());
                     h.setName(newName);
                     return h;
                 }).call(() -> session.flush());
     }
 
     public Uni<Hero> findHero(Mutiny.Session session, Long id) {
-        System.out.println("Finding hero: " + id + " with session:  " + session + " with transaction " + session.currentTransaction());
         return session.find(Hero.class, id);
     }
 
