@@ -9,7 +9,6 @@ import org.hibernate.reactive.mutiny.Mutiny;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
-import io.quarkus.hibernate.reactive.transactions.deployment.RequestScopedSession;
 import io.quarkus.hibernate.reactive.transactions.deployment.TransactionalInterceptor;
 import io.quarkus.test.QuarkusUnitTest;
 import io.quarkus.test.vertx.RunOnVertxContext;
@@ -21,7 +20,7 @@ public class HibernateReactiveTransactionsTest {
     @RegisterExtension
     static final QuarkusUnitTest config = new QuarkusUnitTest()
             .withApplicationRoot((jar) -> jar
-                    .addClasses(Hero.class, TransactionalInterceptor.class, RequestScopedSession.class)
+                    .addClasses(Hero.class, TransactionalInterceptor.class)
                     .addAsResource("initialTransactionData.sql", "import.sql")
             )
             .withConfigurationResource("application.properties");

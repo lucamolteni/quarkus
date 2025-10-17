@@ -17,12 +17,6 @@ import org.hibernate.reactive.mutiny.Mutiny;
 public class TransactionalInterceptor {
 
     /**
-     * The request-scoped wrapper for the current stateless session.
-     */
-    @Inject
-    RequestScopedSession requestScopedSession;
-
-    /**
      * The reactive {@link Mutiny.SessionFactory} made available by
      * the Quarkus extension for Hibernate Reactive.
      */
@@ -39,10 +33,8 @@ public class TransactionalInterceptor {
         if ( factory.getCurrentSession() == null) {
             try {
                 return factory.withTransaction(session -> {
-                    requestScopedSession.setSession(session);
                     try {
-                        Uni<?> result = (Uni<?>) invocationContext.proceed();
-                        return result.eventually(() -> requestScopedSession.setSession(null));
+                        return (Uni<?>) invocationContext.proceed();
                     }
                     catch (Exception e) {
                         throw new TemporaryWrapper(e);
