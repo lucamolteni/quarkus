@@ -2,6 +2,9 @@ package io.quarkus.hibernate.reactive.transactions.test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.quarkus.hibernate.reactive.transactions.deployment.RequestScopedSession;
+import io.quarkus.hibernate.reactive.transactions.deployment.TransactionalInterceptor;
+import io.quarkus.hibernate.reactive.transactions.deployment.WithTransaction;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 
@@ -19,7 +22,7 @@ public class HibernateReactiveTransactionsTest {
     @RegisterExtension
     static final QuarkusUnitTest config = new QuarkusUnitTest()
             .withApplicationRoot((jar) -> jar
-                    .addClasses(Hero.class)
+                    .addClasses(Hero.class, TransactionalInterceptor.class, RequestScopedSession.class)
                     .addAsResource("initialTransactionData.sql", "import.sql")
             )
             .withConfigurationResource("application.properties");
@@ -32,6 +35,7 @@ public class HibernateReactiveTransactionsTest {
     @Transactional
     public void testReactiveManualTransaction(UniAsserter asserter) {
 
+        // initialTransactionData.sql
         Long previousHeroId = 60L;
 
         Uni<Hero> failingUpdate = entityManager.withTransaction(session -> {
@@ -53,9 +57,10 @@ public class HibernateReactiveTransactionsTest {
 
     @Test
     @RunOnVertxContext
-    @Transactional
+    @WithTransaction
     public void testReactiveAnnotationTransaction(UniAsserter asserter) {
 
+        // initialTransactionData.sql
         Long previousHeroId = 50L;
 
         Uni<Hero> failingUpdate = entityManager.withSession(session -> {
