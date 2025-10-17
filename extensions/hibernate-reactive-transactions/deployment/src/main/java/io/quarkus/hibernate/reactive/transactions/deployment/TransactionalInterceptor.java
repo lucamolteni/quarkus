@@ -5,13 +5,14 @@ import jakarta.inject.Inject;
 import jakarta.interceptor.AroundInvoke;
 import jakarta.interceptor.Interceptor;
 import jakarta.interceptor.InvocationContext;
+import jakarta.transaction.Transactional;
 import org.hibernate.reactive.mutiny.Mutiny;
 
 /**
  * An interceptor which manages the lifecycle of a CDI request-scoped
  * reactive {@linkplain Mutiny.StatelessSession stateless session}.
  */
-@WithTransaction
+@Transactional
 @Interceptor
 public class TransactionalInterceptor {
 

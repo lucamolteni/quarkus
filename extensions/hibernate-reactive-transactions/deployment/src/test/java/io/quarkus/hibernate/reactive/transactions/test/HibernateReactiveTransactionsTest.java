@@ -2,9 +2,6 @@ package io.quarkus.hibernate.reactive.transactions.test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import io.quarkus.hibernate.reactive.transactions.deployment.RequestScopedSession;
-import io.quarkus.hibernate.reactive.transactions.deployment.TransactionalInterceptor;
-import io.quarkus.hibernate.reactive.transactions.deployment.WithTransaction;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 
@@ -12,6 +9,8 @@ import org.hibernate.reactive.mutiny.Mutiny;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
+import io.quarkus.hibernate.reactive.transactions.deployment.RequestScopedSession;
+import io.quarkus.hibernate.reactive.transactions.deployment.TransactionalInterceptor;
 import io.quarkus.test.QuarkusUnitTest;
 import io.quarkus.test.vertx.RunOnVertxContext;
 import io.quarkus.test.vertx.UniAsserter;
@@ -32,7 +31,6 @@ public class HibernateReactiveTransactionsTest {
 
     @Test
     @RunOnVertxContext
-    @Transactional
     public void testReactiveManualTransaction(UniAsserter asserter) {
 
         // initialTransactionData.sql
@@ -57,7 +55,7 @@ public class HibernateReactiveTransactionsTest {
 
     @Test
     @RunOnVertxContext
-    @WithTransaction
+    @Transactional
     public void testReactiveAnnotationTransaction(UniAsserter asserter) {
 
         // initialTransactionData.sql
