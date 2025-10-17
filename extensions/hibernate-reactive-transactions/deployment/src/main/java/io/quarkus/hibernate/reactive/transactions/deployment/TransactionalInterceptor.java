@@ -9,8 +9,8 @@ import jakarta.transaction.Transactional;
 import org.hibernate.reactive.mutiny.Mutiny;
 
 /**
- * An interceptor which manages the lifecycle of a CDI request-scoped
- * reactive {@linkplain Mutiny.StatelessSession stateless session}.
+ * An interceptor which manages reactive transactions for methods
+ * annotated with {@link Transactional}.
  */
 @Transactional
 @Interceptor
@@ -23,13 +23,11 @@ public class TransactionalInterceptor {
     @Inject Mutiny.SessionFactory factory;
 
     /**
-     * If the operation is a reactive operation, that is, if it returns
-     * {@link Uni}, associate a stateless session with the stream. The
-     * stateless session will be automatically cleaned up when the
-     * {@code Uni} returned by the operation terminates.
+     * Wraps the method execution in a reactive transaction using
+     * {@link Mutiny.SessionFactory#withTransaction(java.util.function.Function)}.
      */
     @AroundInvoke
-    public Object withSession(InvocationContext invocationContext) throws Exception {
+    public Object withTransaction(InvocationContext invocationContext) throws Exception {
         if ( factory.getCurrentSession() == null) {
             try {
                 return factory.withTransaction(session -> {
