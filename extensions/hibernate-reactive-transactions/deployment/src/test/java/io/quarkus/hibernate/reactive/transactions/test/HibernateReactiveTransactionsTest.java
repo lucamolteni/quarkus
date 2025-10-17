@@ -29,13 +29,26 @@ public class HibernateReactiveTransactionsTest {
 
     @Test
     @RunOnVertxContext
+    @Transactional
     public void testReactiveManualTransaction(UniAsserter asserter) {
-        Uni<Hero> hero = entityManager.withTransaction(s -> s.persist(new Hero("hero1")))
-                .flatMap(v -> entityManager.withTransaction(
-                        s -> s.createQuery("select h from Hero h where h.name = 'hero1'", Hero.class)
-                                .getSingleResult()));
 
-        asserter.assertThat(() -> hero, h -> assertThat("hero1").isEqualTo(h.name));
+        Long previousHeroId = 60L;
+
+        Uni<Hero> failingUpdate = entityManager.withTransaction(session -> {
+            return updateHero(session, previousHeroId, "updatedName")
+                    .flatMap(o -> updateHero(session, previousHeroId, "updatedName2"))
+                    .onItem().invoke(h -> {
+                        throw new RuntimeException("Failing update");
+                    });
+        });
+
+        Uni<Object> refreshedHero =
+                failingUpdate.onFailure().recoverWithNull()
+                        .chain(id -> entityManager.withTransaction(session -> findHero(session, previousHeroId)));
+
+        asserter.assertThat(() -> refreshedHero, h -> {
+            assertThat(((Hero)h).name).isEqualTo("initialName");
+        });
 
     }
 
@@ -46,19 +59,20 @@ public class HibernateReactiveTransactionsTest {
 
         Long previousHeroId = 50L;
 
-        Uni<Object> failingUpdate = entityManager.withSession(session -> {
-                return updateHero(session, previousHeroId, "updatedName")
-                        .flatMap(o -> updateHero(session, previousHeroId, "updatedName2"))
-                        .flatMap(h -> {
-                            return Uni.createFrom().failure(new RuntimeException("Failing update"));
-                        }).onFailure().recoverWithNull();
+        Uni<Hero> failingUpdate = entityManager.withSession(session -> {
+            return updateHero(session, previousHeroId, "updatedName")
+                    .flatMap(o -> updateHero(session, previousHeroId, "updatedName2"))
+                    .onItem().invoke(h -> {
+                        throw new RuntimeException("Failing update");
+                    });
             });
 
-        Uni<Hero> refreshedHero =
-                failingUpdate.flatMap(id -> entityManager.withTransaction(session -> findHero(session, previousHeroId)));
+        Uni<Object> refreshedHero =
+                failingUpdate.onFailure().recoverWithNull()
+                        .chain(id -> entityManager.withTransaction(session -> findHero(session, previousHeroId)));
 
         asserter.assertThat(() -> refreshedHero, h -> {
-            assertThat(h.name).isEqualTo("initialName");
+            assertThat(((Hero)h).name).isEqualTo("initialName");
         });
 
     }
@@ -66,13 +80,14 @@ public class HibernateReactiveTransactionsTest {
     public Uni<Hero> updateHero(Mutiny.Session session, Long id, String newName) {
         return session.find(Hero.class, id)
                 .map(h -> {
-                    System.out.println("Updating hero to newName: " + newName);
+                    System.out.println("Updating hero to newName: " + newName + " with session:  " + session + " with transaction " + session.currentTransaction());
                     h.setName(newName);
                     return h;
                 }).call(() -> session.flush());
     }
 
     public Uni<Hero> findHero(Mutiny.Session session, Long id) {
+        System.out.println("Finding hero: " + id + " with session:  " + session + " with transaction " + session.currentTransaction());
         return session.find(Hero.class, id);
     }
 

@@ -14,7 +14,7 @@ public class Hero {
     @GeneratedValue
     public Long id;
 
-    @Column(unique = true)
+    @Column
     public String name;
 
     public Hero() {
