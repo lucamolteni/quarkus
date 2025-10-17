@@ -21,12 +21,11 @@ public class HibernateReactiveTransactionsTest {
     static final QuarkusUnitTest config = new QuarkusUnitTest()
             .withApplicationRoot((jar) -> jar
                     .addClasses(Hero.class, TransactionalInterceptor.class)
-                    .addAsResource("initialTransactionData.sql", "import.sql")
-            )
+                    .addAsResource("initialTransactionData.sql", "import.sql"))
             .withConfigurationResource("application.properties");
 
     @Inject
-    Mutiny.SessionFactory entityManager;
+    Mutiny.SessionFactory sessionFactory;
 
     @Test
     @RunOnVertxContext
@@ -35,16 +34,15 @@ public class HibernateReactiveTransactionsTest {
         // initialTransactionData.sql
         Long previousHeroId = 60L;
 
-        Uni<Hero> failingUpdate = entityManager.withTransaction(session -> {
+        Uni<Hero> failingUpdate = sessionFactory.withTransaction(session -> {
             return updateHero(session, previousHeroId, "updatedName")
                     .onItem().invoke(h -> {
                         throw new RuntimeException("Failing update");
                     });
         });
 
-        Uni<Hero> refreshedHero =
-                failingUpdate.onFailure().recoverWithNull()
-                        .chain(id -> entityManager.withTransaction(session -> findHero(session, previousHeroId)));
+        Uni<Hero> refreshedHero = failingUpdate.onFailure().recoverWithNull()
+                .chain(id -> sessionFactory.withTransaction(session -> findHero(session, previousHeroId)));
 
         asserter.assertThat(() -> refreshedHero, h -> {
             assertThat(h.name).isEqualTo("initialName");
@@ -52,6 +50,10 @@ public class HibernateReactiveTransactionsTest {
 
     }
 
+    /*
+     * This is the same test as #testReactiveManualTransaction but instead of manually calling sessionFactory.withTransaction
+     * We use the annotation @Transactional
+     */
     @Test
     @RunOnVertxContext
     @Transactional
@@ -60,16 +62,15 @@ public class HibernateReactiveTransactionsTest {
         // initialTransactionData.sql
         Long previousHeroId = 50L;
 
-        Uni<Hero> failingUpdate = entityManager.withSession(session -> {
+        Uni<Hero> failingUpdate = sessionFactory.withSession(session -> {
             return updateHero(session, previousHeroId, "updatedName")
                     .onItem().invoke(h -> {
                         throw new RuntimeException("Failing update");
                     });
-            });
+        });
 
-        Uni<Hero> refreshedHero =
-                failingUpdate.onFailure().recoverWithNull()
-                        .chain(id -> entityManager.withTransaction(session -> findHero(session, previousHeroId)));
+        Uni<Hero> refreshedHero = failingUpdate.onFailure().recoverWithNull()
+                .chain(id -> sessionFactory.withTransaction(session -> findHero(session, previousHeroId)));
 
         asserter.assertThat(() -> refreshedHero, h -> {
             assertThat(h.name).isEqualTo("initialName");
