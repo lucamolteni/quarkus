@@ -35,8 +35,7 @@ public class TransactionalInterceptor {
     @AroundInvoke
     public Object withTransaction(InvocationContext invocationContext) throws Exception {
 
-        // TODO Luca perhaps use Gizmo instead of reflection to check this?
-
+        // TODO Luca perhaps use Jandex instead of reflection to check this?
         for(Annotation a : invocationContext.getMethod().getAnnotations()) {
             if(a.toString().contains("WithSessionOnDemand")) {
                 throw new AnnotationException("Cannot mix @Transactional and @WithSessionOnDemand");
