@@ -1,9 +1,10 @@
 package io.quarkus.hibernate.reactive.transactions.test.mixing;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import jakarta.transaction.Transactional;
 
+import org.hibernate.AnnotationException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
@@ -14,7 +15,6 @@ import io.quarkus.hibernate.reactive.panache.common.runtime.WithSessionOnDemandI
 import io.quarkus.hibernate.reactive.transactions.deployment.TransactionalInterceptor;
 import io.quarkus.test.QuarkusUnitTest;
 import io.quarkus.test.vertx.RunOnVertxContext;
-import io.quarkus.test.vertx.UniAsserter;
 import io.smallrye.mutiny.Uni;
 
 public class MixWithOnSessionOnDemandTest {
@@ -29,17 +29,14 @@ public class MixWithOnSessionOnDemandTest {
                             WithSessionOnDemandInterceptor.class,
                             WithSessionOnDemand.class,
                             SessionOperations.class
-                    ))
-            .withConfigurationResource("application.properties");
+                    ));
 
     @Test
     @RunOnVertxContext
-    public void avoidMixingTransactionalAnnotationsTest(UniAsserter asserter) {
-        Uni<?> uni = avoidMixingTransactionalAnnotations();
-
-        asserter.assertThat(() -> uni, h -> {
-            assertThat(h).isNotNull();
-        });
+    public void avoidMixingTransactionalAnnotationsTest() {
+        assertThatThrownBy(() -> avoidMixingTransactionalAnnotations())
+                .isInstanceOf(AnnotationException.class)
+                .hasMessage("Cannot mix @Transactional and @WithSessionOnDemand");
     }
 
     @Transactional
