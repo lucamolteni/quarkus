@@ -1,4 +1,4 @@
-package io.quarkus.hibernate.reactive.transactions.deployment;
+package io.quarkus.hibernate.reactive.transactions.runtime;
 
 import java.lang.annotation.Annotation;
 
@@ -36,8 +36,8 @@ public class TransactionalInterceptor {
     public Object withTransaction(InvocationContext invocationContext) throws Exception {
 
         // TODO Luca perhaps use Jandex instead of reflection to check this?
-        for(Annotation a : invocationContext.getMethod().getAnnotations()) {
-            if(a.toString().contains("WithSessionOnDemand")) {
+        for (Annotation a : invocationContext.getMethod().getAnnotations()) {
+            if (a.toString().contains("WithSessionOnDemand")) {
                 throw new AnnotationException("Cannot mix @Transactional and @WithSessionOnDemand");
             }
         }

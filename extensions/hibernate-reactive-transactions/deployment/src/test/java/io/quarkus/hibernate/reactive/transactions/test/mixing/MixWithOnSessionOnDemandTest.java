@@ -12,7 +12,7 @@ import io.quarkus.hibernate.reactive.panache.common.WithSessionOnDemand;
 import io.quarkus.hibernate.reactive.panache.common.runtime.AbstractUniInterceptor;
 import io.quarkus.hibernate.reactive.panache.common.runtime.SessionOperations;
 import io.quarkus.hibernate.reactive.panache.common.runtime.WithSessionOnDemandInterceptor;
-import io.quarkus.hibernate.reactive.transactions.deployment.TransactionalInterceptor;
+import io.quarkus.hibernate.reactive.transactions.runtime.TransactionalInterceptor;
 import io.quarkus.test.QuarkusUnitTest;
 import io.quarkus.test.vertx.RunOnVertxContext;
 import io.smallrye.mutiny.Uni;
@@ -28,8 +28,7 @@ public class MixWithOnSessionOnDemandTest {
                             AbstractUniInterceptor.class,
                             WithSessionOnDemandInterceptor.class,
                             WithSessionOnDemand.class,
-                            SessionOperations.class
-                    ));
+                            SessionOperations.class));
 
     @Test
     @RunOnVertxContext

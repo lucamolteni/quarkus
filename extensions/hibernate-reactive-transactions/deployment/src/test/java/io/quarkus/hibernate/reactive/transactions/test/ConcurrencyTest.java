@@ -16,7 +16,6 @@ import io.quarkus.test.vertx.UniAsserter;
 import io.smallrye.mutiny.Uni;
 import io.smallrye.mutiny.groups.UniAndGroup2;
 
-
 public class ConcurrencyTest {
 
     @RegisterExtension
@@ -51,21 +50,18 @@ public class ConcurrencyTest {
         Uni<Hero> doSomething2 = sessionFactory.withTransaction(session -> {
             System.out.println("Start update 2 waiting " + wait2 + " threadId " + Thread.currentThread().getId());
             blockThread(wait2);
-            return updateHero(session, previousHeroId, "updatedName2").
-                    onItem().invoke(() -> System.out.println("End update 2 threadId " + Thread.currentThread().getId()));
+            return updateHero(session, previousHeroId, "updatedName2").onItem()
+                    .invoke(() -> System.out.println("End update 2 threadId " + Thread.currentThread().getId()));
         });
-
 
         UniAndGroup2<Hero, Hero> result = Uni.combine().all().unis(
                 doSomething1,
-                doSomething2
-        );
+                doSomething2);
 
         Uni<Hero> refreshedHero = result.withUni((h1, h2) -> {
             return null;
         }).onFailure().recoverWithNull()
                 .chain(id -> sessionFactory.withTransaction(session -> findHero(session, previousHeroId)));
-
 
         asserter.assertThat(() -> refreshedHero, h -> {
             assertThat(h.name).isEqualTo("updatedName2");
