@@ -22,6 +22,10 @@ class HibernateReactiveTransactionsProcessor {
     private static final DotName TRANSACTIONAL = DotName.createSimple(Transactional.class.getName());
 
     private static final String WITH_SESSION_ON_DEMAND = "io.quarkus.hibernate.reactive.panache.common.WithSessionOnDemand";
+    private static final DotName WITH_SESSION = DotName
+            .createSimple("io.quarkus.hibernate.reactive.panache.common.WithSession");
+    private static final DotName WITH_TRANSACTION = DotName
+            .createSimple("io.quarkus.hibernate.reactive.panache.common.WithTransaction");
 
     @BuildStep
     FeatureBuildItem feature() {
@@ -43,6 +47,14 @@ class HibernateReactiveTransactionsProcessor {
 
             if (annotationTarget.hasAnnotation(WITH_SESSION_ON_DEMAND)) {
                 throw new ConfigurationException("Cannot mix @Transactional and @WithSessionOnDemand");
+            }
+
+            if (annotationTarget.hasAnnotation(WITH_SESSION)) {
+                throw new ConfigurationException("Cannot mix @Transactional and @WithSession");
+            }
+
+            if (annotationTarget.hasAnnotation(WITH_TRANSACTION)) {
+                throw new ConfigurationException("Cannot mix @Transactional and @WithTransaction");
             }
 
         }

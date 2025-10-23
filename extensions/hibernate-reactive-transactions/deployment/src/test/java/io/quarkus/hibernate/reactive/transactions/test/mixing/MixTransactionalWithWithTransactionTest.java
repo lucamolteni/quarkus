@@ -8,13 +8,13 @@ import jakarta.transaction.Transactional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
-import io.quarkus.hibernate.reactive.panache.common.WithSessionOnDemand;
+import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 import io.quarkus.runtime.configuration.ConfigurationException;
 import io.quarkus.test.QuarkusUnitTest;
 import io.quarkus.test.vertx.RunOnVertxContext;
 import io.smallrye.mutiny.Uni;
 
-public class MixWithOnSessionOnDemandTest {
+public class MixTransactionalWithWithTransactionTest {
 
     @RegisterExtension
     static final QuarkusUnitTest config = new QuarkusUnitTest()
@@ -22,17 +22,17 @@ public class MixWithOnSessionOnDemandTest {
             .assertException(throwable -> assertThat(throwable)
                     .isInstanceOf(ConfigurationException.class)
                     .hasMessageContaining(
-                            "Cannot mix @Transactional and @WithSessionOnDemand"));
+                            "Cannot mix @Transactional and @WithTransaction"));
 
     @Test
     @RunOnVertxContext
-    public void avoidMixingTransactionalAnnotationsTest() {
+    public void avoidMixingTransactionalAndWithTransactionTest() {
         fail(); // this will never be called, extension will fail seeing the method below
     }
 
     @Transactional
-    @WithSessionOnDemand
-    public Uni<?> avoidMixingTransactionalAnnotations() {
+    @WithTransaction
+    public Uni<?> avoidMixingTransactionalAndWithTransaction() {
         throw new UnsupportedOperationException("this shouldn't be called");
     }
 }
