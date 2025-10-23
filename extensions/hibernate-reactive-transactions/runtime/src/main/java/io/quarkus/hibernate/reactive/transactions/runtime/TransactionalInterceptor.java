@@ -1,14 +1,11 @@
 package io.quarkus.hibernate.reactive.transactions.runtime;
 
-import java.lang.annotation.Annotation;
-
 import jakarta.inject.Inject;
 import jakarta.interceptor.AroundInvoke;
 import jakarta.interceptor.Interceptor;
 import jakarta.interceptor.InvocationContext;
 import jakarta.transaction.Transactional;
 
-import org.hibernate.AnnotationException;
 import org.hibernate.reactive.mutiny.Mutiny;
 
 import io.smallrye.mutiny.Uni;
@@ -34,13 +31,6 @@ public class TransactionalInterceptor {
      */
     @AroundInvoke
     public Object withTransaction(InvocationContext invocationContext) throws Exception {
-
-        // TODO Luca perhaps use Jandex instead of reflection to check this?
-        for (Annotation a : invocationContext.getMethod().getAnnotations()) {
-            if (a.toString().contains("WithSessionOnDemand")) {
-                throw new AnnotationException("Cannot mix @Transactional and @WithSessionOnDemand");
-            }
-        }
         if (factory.getCurrentSession() == null) {
             try {
                 return factory.withTransaction(session -> {
