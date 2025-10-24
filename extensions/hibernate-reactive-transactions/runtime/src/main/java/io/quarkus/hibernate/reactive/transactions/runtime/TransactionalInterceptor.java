@@ -1,9 +1,11 @@
 package io.quarkus.hibernate.reactive.transactions.runtime;
 
+import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
 import jakarta.interceptor.AroundInvoke;
 import jakarta.interceptor.Interceptor;
 import jakarta.interceptor.InvocationContext;
+import jakarta.transaction.TransactionManager;
 import jakarta.transaction.Transactional;
 
 import org.hibernate.reactive.mutiny.Mutiny;
@@ -25,12 +27,22 @@ public class TransactionalInterceptor {
     @Inject
     Mutiny.SessionFactory factory;
 
+    @Inject
+    Instance<TransactionManager> transactionManager;
+
     /**
      * Wraps the method execution in a reactive transaction using
      * {@link Mutiny.SessionFactory#withTransaction(java.util.function.Function)}.
      */
     @AroundInvoke
     public Object withTransaction(InvocationContext invocationContext) throws Exception {
+        if(transactionManager.isResolvable()) {
+            TransactionManager transactionManager1 = transactionManager.getHandle().get();
+
+            System.out.println(transactionManager1);
+        }
+
+
         if (factory.getCurrentSession() == null) {
             try {
                 return factory.withTransaction(session -> {
