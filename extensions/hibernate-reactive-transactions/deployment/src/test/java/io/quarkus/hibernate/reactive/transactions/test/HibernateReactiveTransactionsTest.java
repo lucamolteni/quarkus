@@ -56,12 +56,18 @@ public class HibernateReactiveTransactionsTest {
      */
     @Test
     @RunOnVertxContext
-    @Transactional
     public void testReactiveAnnotationTransaction(UniAsserter asserter) {
 
         // initialTransactionData.sql
         Long previousHeroId = 50L;
 
+        // We need to wrap the test in a method because to enable Transactions the method should return a Uni
+        // And the test itself has to return null
+        test(asserter, previousHeroId);
+    }
+
+    @Transactional
+    public Uni<Hero> test(UniAsserter asserter, Long previousHeroId) {
         Uni<Hero> failingUpdate = sessionFactory.withSession(session -> {
             return updateHero(session, previousHeroId, "updatedName")
                     .onItem().invoke(h -> {
@@ -76,6 +82,7 @@ public class HibernateReactiveTransactionsTest {
             assertThat(h.name).isEqualTo("initialName");
         });
 
+        return refreshedHero;
     }
 
     public Uni<Hero> updateHero(Mutiny.Session session, Long id, String newName) {
