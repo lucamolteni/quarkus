@@ -4,8 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.List;
 
-import io.quarkus.runtime.BlockingOperationNotAllowedException;
 import jakarta.inject.Inject;
+import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityManagerFactory;
 import jakarta.transaction.Transactional;
 
@@ -17,6 +17,7 @@ import io.quarkus.builder.Version;
 import io.quarkus.hibernate.reactive.transactions.runtime.TransactionalInterceptor;
 import io.quarkus.hibernate.reactive.transactions.test.Hero;
 import io.quarkus.maven.dependency.Dependency;
+import io.quarkus.runtime.BlockingOperationNotAllowedException;
 import io.quarkus.test.QuarkusUnitTest;
 import io.quarkus.test.vertx.RunOnVertxContext;
 import io.quarkus.test.vertx.UniAsserter;
@@ -26,8 +27,7 @@ public class MixReactiveBlockingTest {
 
     @RegisterExtension
     static final QuarkusUnitTest config = new QuarkusUnitTest()
-            .withApplicationRoot(jar ->
-                    jar.addClasses(Hero.class, TransactionalInterceptor.class))
+            .withApplicationRoot(jar -> jar.addClasses(Hero.class, TransactionalInterceptor.class))
             .setForcedDependencies(List.of(
                     Dependency.of("io.quarkus", "quarkus-jdbc-postgresql-deployment", Version.getVersion()) // this triggers Agroal
             ));
@@ -63,14 +63,7 @@ public class MixReactiveBlockingTest {
     public void onlyReactiveWorks(UniAsserter asserter) {
         Uni<Hero> uni = onlyReactiveWorks();
 
-        // TODO Luca this should actually work as we're not using any blocking operation
-        // But when including the JDBC Driver
-        // io/quarkus/narayana/jta/runtime/interceptor/TransactionalInterceptorRequired.java:29
-        // Runs the check for the IO Thread and always fail
-        asserter.assertFailedWith(() -> uni,
-                e -> assertThat(e.getCause())
-                        .isInstanceOf(BlockingOperationNotAllowedException.class)
-                        .hasMessage("Cannot start a JTA transaction from the IO thread."));
+        asserter.assertThat(() -> uni, h -> assertThat(h).isNotNull());
     }
 
     @Transactional
@@ -78,5 +71,20 @@ public class MixReactiveBlockingTest {
         Hero heroReactive = new Hero("heroName");
         return reactiveSessionFactory.withSession(s -> s.merge(heroReactive))
                 .flatMap(h -> reactiveSessionFactory.withSession(s -> s.find(Hero.class, h.id)));
+    }
+
+    @Test
+    public void onlyBlockingWorks() {
+        Hero h = onlyBlockingWorksOperation();
+
+        assertThat(h).isNotNull();
+    }
+
+    @Transactional
+    public Hero onlyBlockingWorksOperation() {
+        Hero heroReactive = new Hero("heroName");
+        EntityManager entityManager = entityManagerFactory.createEntityManager();
+        entityManager.persist(heroReactive);
+        return entityManager.find(Hero.class, heroReactive.id);
     }
 }

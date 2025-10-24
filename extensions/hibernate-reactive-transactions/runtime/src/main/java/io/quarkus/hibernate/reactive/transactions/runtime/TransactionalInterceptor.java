@@ -36,14 +36,13 @@ public class TransactionalInterceptor {
      */
     @AroundInvoke
     public Object withTransaction(InvocationContext invocationContext) throws Exception {
-        if(transactionManager.isResolvable()) {
+        if (transactionManager.isResolvable()) {
             TransactionManager transactionManager1 = transactionManager.getHandle().get();
 
             System.out.println(transactionManager1);
         }
 
-
-        if (factory.getCurrentSession() == null) {
+        if (factory.getCurrentSession() == null && invocationContext.getMethod().getReturnType().equals(Uni.class)) {
             try {
                 return factory.withTransaction(session -> {
                     try {
