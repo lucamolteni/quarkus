@@ -40,7 +40,7 @@ import mutiny.zero.flow.adapters.AdaptersToReactiveStreams;
 public abstract class TransactionalInterceptorBase implements Serializable {
 
     private static final long serialVersionUID = 1L;
-    private static final Logger log = Logger.getLogger(TransactionalInterceptorBase.class);
+    protected static final Logger log = Logger.getLogger(TransactionalInterceptorBase.class);
     private final Map<Method, Integer> methodTransactionTimeoutDefinedByPropertyCache = new ConcurrentHashMap<>();
 
     @Inject

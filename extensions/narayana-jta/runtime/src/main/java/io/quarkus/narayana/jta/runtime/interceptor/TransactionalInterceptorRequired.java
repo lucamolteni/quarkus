@@ -30,6 +30,7 @@ public class TransactionalInterceptorRequired extends TransactionalInterceptorBa
         // We shoudln't run on reactive methods
         // TODO Luca this should be done for all kinds of interceptors
         if (ic.getMethod().getReturnType().equals(Uni.class)) {
+            log.info("method is annoted @Transactional but returns a Uni<?>, JTA transactions will be disabled");
             return ic.proceed();
         }
 
