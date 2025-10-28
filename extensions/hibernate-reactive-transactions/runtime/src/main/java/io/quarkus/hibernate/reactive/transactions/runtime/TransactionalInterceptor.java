@@ -1,5 +1,7 @@
 package io.quarkus.hibernate.reactive.transactions.runtime;
 
+import io.vertx.core.Context;
+import io.vertx.core.Vertx;
 import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
 import jakarta.interceptor.AroundInvoke;
@@ -46,6 +48,11 @@ public class TransactionalInterceptor {
             try {
                 return factory.withTransaction(session -> {
                     try {
+                        // TODO Luca mixing stateless and stateful session but this call is being made only once
+                        // So I'm not sure how to actually find it out - ask Yoann
+                        // This session is also discarded
+                        Context context = Vertx.currentContext();
+                        System.out.println(context);
                         return (Uni<?>) invocationContext.proceed();
                     } catch (Exception e) {
                         throw new TemporaryWrapper(e);
