@@ -10,6 +10,8 @@ import java.util.function.Supplier;
 
 import org.hibernate.SessionFactory;
 import org.hibernate.reactive.mutiny.Mutiny;
+import org.hibernate.reactive.mutiny.delegation.MutinySessionDelegator;
+import org.hibernate.reactive.mutiny.delegation.MutinyStatelessSessionDelegator;
 
 import io.quarkus.arc.ActiveResult;
 import io.quarkus.arc.SyntheticCreationalContext;
@@ -86,6 +88,47 @@ public class HibernateReactiveRecorder {
                         .unwrap(SessionFactory.class);
 
                 return sessionFactory.unwrap(Mutiny.SessionFactory.class);
+            }
+        };
+    }
+
+    public Function<SyntheticCreationalContext<Mutiny.Session>, Mutiny.Session> sessionSupplier(String persistenceUnitName) {
+        return new Function<SyntheticCreationalContext<Mutiny.Session>, Mutiny.Session>() {
+
+            @Override
+            public Mutiny.Session apply(SyntheticCreationalContext<Mutiny.Session> context) {
+                return new MutinySessionDelegator() {
+                    @Override
+                    public Mutiny.Session delegate() {
+
+                        // TODO check we're in @Transactional
+                        // TODO get the session from vert.x context or open it (similar to Panache.getSession)
+                        // To open, use SessionFactory#openSessionWithLazyConnectionOpening -> returns Mutiny.Session
+
+                        throw new UnsupportedOperationException();
+                    }
+                };
+            }
+        };
+    }
+
+    public Function<SyntheticCreationalContext<Mutiny.StatelessSession>, Mutiny.StatelessSession> statelessSessionSupplier(
+            String persistenceUnitName) {
+        return new Function<SyntheticCreationalContext<Mutiny.StatelessSession>, Mutiny.StatelessSession>() {
+
+            @Override
+            public Mutiny.StatelessSession apply(SyntheticCreationalContext<Mutiny.StatelessSession> context) {
+                return new MutinyStatelessSessionDelegator() {
+                    @Override
+                    public Mutiny.StatelessSession delegate() {
+                        // TODO check we're in @Transactional
+                        // TODO get the session from vert.x context or open it (similar to Panache.getSession)
+                        // To open, use SessionFactory#openSessionWithLazyConnectionOpening -> returns Mutiny.Session
+
+                        throw new UnsupportedOperationException();
+
+                    }
+                };
             }
         };
     }
