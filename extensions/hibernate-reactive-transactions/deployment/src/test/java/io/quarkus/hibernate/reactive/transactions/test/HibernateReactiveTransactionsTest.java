@@ -42,13 +42,16 @@ public class HibernateReactiveTransactionsTest {
         });
 
         Uni<Hero> refreshedHero = failingUpdate.onFailure().recoverWithNull()
-                .chain(id -> sessionFactory.withTransaction(session -> findHero(session, previousHeroId)));
+                .chain(id -> sessionFactory.withTransaction(session -> this.session.find(Hero.class, previousHeroId)));
 
         asserter.assertThat(() -> refreshedHero, h -> {
             assertThat(h.name).isEqualTo("initialName");
         });
 
     }
+
+    @Inject
+    Mutiny.Session session;
 
     /*
      * This is the same test as #testReactiveManualTransaction but instead of manually calling sessionFactory.withTransaction
@@ -68,15 +71,13 @@ public class HibernateReactiveTransactionsTest {
 
     @Transactional
     public Uni<Hero> test(UniAsserter asserter, Long previousHeroId) {
-        Uni<Hero> failingUpdate = sessionFactory.withSession(session -> {
-            return updateHero(session, previousHeroId, "updatedName")
+        Uni<Hero> failingUpdate = updateHero(session, previousHeroId, "updatedName")
                     .onItem().invoke(h -> {
                         throw new RuntimeException("Failing update");
                     });
-        });
 
         Uni<Hero> refreshedHero = failingUpdate.onFailure().recoverWithNull()
-                .chain(id -> sessionFactory.withTransaction(session -> findHero(session, previousHeroId)));
+                .chain(id -> session.find(Hero.class, previousHeroId));
 
         asserter.assertThat(() -> refreshedHero, h -> {
             assertThat(h.name).isEqualTo("initialName");
@@ -85,6 +86,7 @@ public class HibernateReactiveTransactionsTest {
         return refreshedHero;
     }
 
+    @Transactional
     public Uni<Hero> updateHero(Mutiny.Session session, Long id, String newName) {
         return session.find(Hero.class, id)
                 .map(h -> {
@@ -92,9 +94,4 @@ public class HibernateReactiveTransactionsTest {
                     return h;
                 }).call(() -> session.flush());
     }
-
-    public Uni<Hero> findHero(Mutiny.Session session, Long id) {
-        return session.find(Hero.class, id);
-    }
-
 }
