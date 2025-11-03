@@ -42,6 +42,9 @@ public class MixStatelessStatefulSessionTest {
         Hero heroStateful = new Hero("heroStateful");
         Hero heroStateless = new Hero("heroStateless");
 
+        // TODO this is an advanced scenario and we shoulnd't support this
+
+
         return mutinySessionFactory
                 .withSession(s -> {
                     return s.merge(heroStateful)
@@ -51,7 +54,8 @@ public class MixStatelessStatefulSessionTest {
                 })
                 .flatMap(h1 -> {
                     return mutinySessionFactory.withStatelessSession(
-                            s -> s.insert(heroStateless).onItem().invoke(() -> System.out.println("++++ Second insert done")));
+                            s -> s.insert(heroStateless)
+                                    .onItem().invoke(() -> System.out.println("++++ Second insert done")));
                 });
     }
 

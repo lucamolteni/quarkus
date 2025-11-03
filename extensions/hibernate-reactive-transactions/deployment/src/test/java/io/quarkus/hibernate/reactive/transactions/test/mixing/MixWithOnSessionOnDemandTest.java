@@ -30,6 +30,33 @@ public class MixWithOnSessionOnDemandTest {
         fail(); // this will never be called, extension will fail seeing the method below
     }
 
+    @Test
+    @RunOnVertxContext
+    public void actualTest() {
+        fail(); // this will never be called, extension will fail seeing the method below
+    }
+
+    @Test
+    @RunOnVertxContext
+    public void actualTest() {
+        // This should tell users do not do this and migrate to @Transactional
+        avoidMixingTransactionalAnnotations1();
+    }
+
+    @Transactional
+    public Uni<?> avoidMixingTransactionalAnnotations1() {
+        // Do reactive stuff
+        Uni<?> a = null;
+        a.flatMap(a -> avoidMixingTransactionalAnnotations2());
+        return null;
+    }
+
+    @WithSessionOnDemand
+    public Uni<?> avoidMixingTransactionalAnnotations2() {
+        // Do reactive stuff pt 2
+        return null;
+    }
+
     @Transactional
     @WithSessionOnDemand
     public Uni<?> avoidMixingTransactionalAnnotations() {

@@ -29,30 +29,17 @@ public class TransactionalInterceptor {
     @Inject
     Mutiny.SessionFactory factory;
 
-    @Inject
-    Instance<TransactionManager> transactionManager;
-
     /**
      * Wraps the method execution in a reactive transaction using
      * {@link Mutiny.SessionFactory#withTransaction(java.util.function.Function)}.
      */
     @AroundInvoke
     public Object withTransaction(InvocationContext invocationContext) throws Exception {
-        if (transactionManager.isResolvable()) {
-            TransactionManager transactionManager1 = transactionManager.getHandle().get();
-
-            System.out.println(transactionManager1);
-        }
 
         if (factory.getCurrentSession() == null && invocationContext.getMethod().getReturnType().equals(Uni.class)) {
             try {
                 return factory.withTransaction(session -> {
                     try {
-                        // TODO Luca mixing stateless and stateful session but this call is being made only once
-                        // So I'm not sure how to actually find it out - ask Yoann
-                        // This session is also discarded
-                        Context context = Vertx.currentContext();
-                        System.out.println(context);
                         return (Uni<?>) invocationContext.proceed();
                     } catch (Exception e) {
                         throw new TemporaryWrapper(e);
