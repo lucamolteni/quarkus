@@ -87,8 +87,7 @@ public class HibernateReactiveCdiProcessor {
     private void produceSessionBeans(
             BuildProducer<SyntheticBeanBuildItem> producer,
             HibernateReactiveRecorder recorder,
-            PersistenceUnitReference puRef
-            ) {
+            PersistenceUnitReference puRef) {
 
         // Create Session bean
         producer.produce(createSyntheticBean(puRef,
@@ -104,7 +103,7 @@ public class HibernateReactiveCdiProcessor {
     }
 
     private static <T> SyntheticBeanBuildItem.ExtendedBeanConfigurator createSyntheticBean(PersistenceUnitReference puRef,
-                                                                                           Class<T> type, List<DotName> allExposedTypes, boolean defaultBean) {
+            Class<T> type, List<DotName> allExposedTypes, boolean defaultBean) {
         SyntheticBeanBuildItem.ExtendedBeanConfigurator configurator = SyntheticBeanBuildItem
                 .configure(type)
                 // NOTE: this is using ApplicationScope and not Singleton, by design, in order to be mockable

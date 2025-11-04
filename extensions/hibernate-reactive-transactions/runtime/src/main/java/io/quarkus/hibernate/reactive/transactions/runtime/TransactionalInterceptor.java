@@ -1,30 +1,22 @@
 package io.quarkus.hibernate.reactive.transactions.runtime;
 
-import io.quarkus.arc.Arc;
-import io.quarkus.arc.ClientProxy;
-import io.quarkus.arc.impl.ComputingCache;
-import io.quarkus.hibernate.orm.PersistenceUnit;
-import io.quarkus.vertx.core.runtime.context.VertxContextSafetyToggle;
-import jakarta.inject.Inject;
-import jakarta.interceptor.AroundInvoke;
-import jakarta.interceptor.Interceptor;
-import jakarta.interceptor.InvocationContext;
-import jakarta.transaction.Transactional;
-
-import org.hibernate.reactive.common.spi.Implementor;
-import org.hibernate.reactive.context.impl.BaseKey;
-import org.hibernate.reactive.mutiny.Mutiny;
-
-import io.smallrye.mutiny.Uni;
-import io.vertx.core.Context;
-import io.vertx.core.Vertx;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Supplier;
 
-import static io.quarkus.hibernate.orm.runtime.PersistenceUnitUtil.DEFAULT_PERSISTENCE_UNIT_NAME;
+import jakarta.interceptor.AroundInvoke;
+import jakarta.interceptor.Interceptor;
+import jakarta.interceptor.InvocationContext;
+import jakarta.transaction.Transactional;
+
+import org.hibernate.reactive.mutiny.Mutiny;
+
+import io.quarkus.hibernate.reactive.runtime.HibernateReactiveRecorder;
+import io.quarkus.vertx.core.runtime.context.VertxContextSafetyToggle;
+import io.smallrye.mutiny.Uni;
+import io.vertx.core.Context;
+import io.vertx.core.Vertx;
 
 /**
  * An interceptor which manages reactive transactions for methods
@@ -34,18 +26,9 @@ import static io.quarkus.hibernate.orm.runtime.PersistenceUnitUtil.DEFAULT_PERSI
 @Interceptor
 public class TransactionalInterceptor {
 
-    /**
-     * The reactive {@link Mutiny.SessionFactory} made available by
-     * the Quarkus extension for Hibernate Reactive.
-     */
-    @Inject
-    Mutiny.SessionFactory factory;
-
-
     public static final String CURRENT_SESSION_INTERCEPTOR_KEY = "current_session_interceptor";
 
     private static final String ERROR_MSG = "Hibernate Reactive Panache requires a safe (isolated) Vert.x sub-context, but the current context hasn't been flagged as such.";
-
 
     @AroundInvoke
     public Object withTransaction(InvocationContext context) throws Exception {
@@ -75,7 +58,6 @@ public class TransactionalInterceptor {
 
     // This key is used to keep track of the Set<String> sessions created on demand
     private static final String SESSION_ON_DEMAND_OPENED_KEY = "hibernate.reactive.panache.sessionOnDemandOpened";
-
 
     static <T> Uni<T> withTransactionalSessionOnDemand(Supplier<Uni<T>> work) {
         // TODO register that we're in @Transactional so that @WithSessionOnDemand can detect it and fail
@@ -138,51 +120,12 @@ public class TransactionalInterceptor {
 
     static Uni<Void> closeSession(String persistenceUnitName) {
         Context context = vertxContext();
-        org.hibernate.reactive.context.Context.Key<Mutiny.Session> key = SESSION_KEY_MAP.getValue(persistenceUnitName);
+        org.hibernate.reactive.context.Context.Key<Mutiny.Session> key = HibernateReactiveRecorder
+                .createSessionKey(persistenceUnitName);
         Mutiny.Session current = context.getLocal(key);
         if (current != null && current.isOpen()) {
             return current.close().eventually(() -> context.removeLocal(key));
         }
         return Uni.createFrom().voidItem();
-    }
-
-    private static final ComputingCache<String, org.hibernate.reactive.context.Context.Key<Mutiny.Session>> SESSION_KEY_MAP = new ComputingCache<>(
-            k -> createSessionKey(k));
-
-    private static final ComputingCache<String, Mutiny.SessionFactory> SESSION_FACTORY_MAP = new ComputingCache<>(
-            k -> createSessionFactory(k));
-
-    private static Mutiny.SessionFactory createSessionFactory(String persistenceunitname) {
-        Mutiny.SessionFactory sessionFactory;
-
-        // Note that Mutiny.SessionFactory is @ApplicationScoped bean - it's safe to use the cached client proxy
-        if (DEFAULT_PERSISTENCE_UNIT_NAME.equals(persistenceunitname)) {
-            sessionFactory = Arc.container().instance(Mutiny.SessionFactory.class).get();
-        } else {
-            sessionFactory = Arc.container().instance(Mutiny.SessionFactory.class,
-                    new PersistenceUnit.PersistenceUnitLiteral(persistenceunitname)).get();
-        }
-
-        if (sessionFactory == null) {
-            throw new IllegalStateException("Mutiny.SessionFactory bean not found");
-        }
-        return sessionFactory;
-    }
-
-    private static org.hibernate.reactive.context.Context.Key<Mutiny.Session> createSessionKey(String persistenceUnitName) {
-        Implementor implementor = (Implementor) ClientProxy
-                .unwrap(SESSION_FACTORY_MAP.getValue(persistenceUnitName));
-        return new BaseKey<>(Mutiny.Session.class, implementor.getUuid());
-    }
-
-    private static class TemporaryWrapper extends RuntimeException {
-        private TemporaryWrapper(Exception cause) {
-            super(cause);
-        }
-
-        @Override
-        public Exception getCause() {
-            return (Exception) super.getCause();
-        }
     }
 }

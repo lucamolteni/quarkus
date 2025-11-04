@@ -76,9 +76,9 @@ public class HibernateReactiveTransactionsTest {
     @Transactional
     public Uni<Hero> transactionalUpdateWithRollback(Long previousHeroId) {
         Uni<Hero> failingUpdate = updateHero(session, previousHeroId, "updatedName")
-                    .onItem().invoke(h -> {
-                        throw new RuntimeException("Failing update");
-                    });
+                .onItem().invoke(h -> {
+                    throw new RuntimeException("Failing update");
+                });
 
         return failingUpdate.onFailure().recoverWithNull()
                 .chain(id -> session.find(Hero.class, previousHeroId));

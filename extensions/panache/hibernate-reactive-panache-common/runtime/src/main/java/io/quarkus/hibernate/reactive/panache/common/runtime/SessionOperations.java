@@ -56,8 +56,9 @@ public final class SessionOperations {
     }
 
     private static Key<Session> createSessionKey(String persistenceUnitName) {
+        SessionFactory value = SESSION_FACTORY_MAP.getValue(persistenceUnitName);
         Implementor implementor = (Implementor) ClientProxy
-                .unwrap(SESSION_FACTORY_MAP.getValue(persistenceUnitName));
+                .unwrap(value);
         return new BaseKey<>(Session.class, implementor.getUuid());
     }
 
@@ -233,7 +234,8 @@ public final class SessionOperations {
      */
     public static Mutiny.Session getCurrentSession(String persistenceUnitName) {
         Context context = vertxContext();
-        Mutiny.Session current = context.getLocal(SESSION_KEY_MAP.getValue(persistenceUnitName));
+        Key<Session> value = SESSION_KEY_MAP.getValue(persistenceUnitName);
+        Mutiny.Session current = context.getLocal(value);
         if (current != null && current.isOpen()) {
             return current;
         }

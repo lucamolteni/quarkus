@@ -44,7 +44,6 @@ public class MixStatelessStatefulSessionTest {
 
         // TODO this is an advanced scenario and we shoulnd't support this
 
-
         return mutinySessionFactory
                 .withSession(s -> {
                     return s.merge(heroStateful)
