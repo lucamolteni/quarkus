@@ -42,7 +42,7 @@ public class HibernateReactiveTransactionsTest {
         });
 
         Uni<Hero> refreshedHero = failingUpdate.onFailure().recoverWithNull()
-                .chain(id -> sessionFactory.withTransaction(session -> this.session.find(Hero.class, previousHeroId)));
+                .chain(id -> sessionFactory.withTransaction(session -> session.find(Hero.class, previousHeroId)));
 
         asserter.assertThat(() -> refreshedHero, h -> {
             assertThat(h.name).isEqualTo("initialName");
