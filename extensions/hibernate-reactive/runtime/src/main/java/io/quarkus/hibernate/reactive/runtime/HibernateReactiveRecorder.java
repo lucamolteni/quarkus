@@ -155,14 +155,11 @@ public class HibernateReactiveRecorder {
                     onDemandSessionsCreated.add(persistenceUnitName);
                     Mutiny.SessionFactory sessionFactory = createSessionFactory(persistenceUnitName);
 
-
-
                     // To open, use SessionFactory#openSessionWithLazyConnectionOpening -> returns Mutiny.Session
                     // createSessionInSnapshot
+
+                    context.putLocal("createTransaction", true);
                     MutinySessionImpl session = (MutinySessionImpl) sessionFactory.createSession();
-
-
-                    Uni<Void> voidUni = session.beginTransaction();
 
                     context.putLocal(key, session);
 
