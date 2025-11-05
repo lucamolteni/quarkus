@@ -80,25 +80,26 @@ public class TransactionalInterceptor {
             // context already marked - no need to set the key and close the session
             return work.get();
         } else {
-            // mark the lazy session
-            context.putLocal(SESSION_ON_DEMAND_KEY, true);
             // perform the work and eventually close the session and remove the key
             return work.get().eventually(() -> {
-                context.removeLocal(SESSION_ON_DEMAND_KEY);
-                Set<String> onDemandSessionCreated = context.getLocal(SESSION_ON_DEMAND_OPENED_KEY);
-                // Close only the sessions that have been created lazily (onDemand) in withSession
-                // See this.getSession(String persistenceUnitName)
-                if (onDemandSessionCreated != null) {
-                    List<Uni<Void>> closedSessions = new ArrayList<>();
-                    for (String s : onDemandSessionCreated) {
-                        closedSessions.add(closeSession(s));
-                    }
-                    context.removeLocal(SESSION_ON_DEMAND_OPENED_KEY);
-                    return Uni.combine().all().unis(closedSessions).discardItems();
-                } else {
-                    return Uni.createFrom().voidItem();
-                }
+                return closeSession(context);
             });
+        }
+    }
+
+    private static Uni<Void> closeSession(Context context) {
+        Set<String> onDemandSessionCreated = context.getLocal(SESSION_ON_DEMAND_OPENED_KEY);
+        // Close only the sessions that have been created lazily (onDemand) in withSession
+        // See this.getSession(String persistenceUnitName)
+        if (onDemandSessionCreated != null) {
+            List<Uni<Void>> closedSessions = new ArrayList<>();
+            for (String s : onDemandSessionCreated) {
+                closedSessions.add(closeSession(s));
+            }
+            context.removeLocal(SESSION_ON_DEMAND_OPENED_KEY);
+            return Uni.combine().all().unis(closedSessions).discardItems();
+        } else {
+            return Uni.createFrom().voidItem();
         }
     }
 

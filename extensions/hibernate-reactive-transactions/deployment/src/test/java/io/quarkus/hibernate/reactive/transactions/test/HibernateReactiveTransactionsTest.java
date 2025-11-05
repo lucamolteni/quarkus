@@ -89,7 +89,6 @@ public class HibernateReactiveTransactionsTest {
                 });
     }
 
-    @Transactional
     public Uni<Hero> updateHero(Mutiny.Session session, Long id, String newName) {
         return session.find(Hero.class, id)
                 .map(h -> {

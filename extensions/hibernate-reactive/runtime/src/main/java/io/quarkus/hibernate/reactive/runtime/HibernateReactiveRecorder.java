@@ -11,6 +11,7 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
+import io.smallrye.mutiny.Uni;
 import org.hibernate.SessionFactory;
 import org.hibernate.reactive.common.spi.Implementor;
 import org.hibernate.reactive.context.impl.BaseKey;
@@ -32,6 +33,7 @@ import io.quarkus.runtime.RuntimeValue;
 import io.quarkus.runtime.annotations.Recorder;
 import io.vertx.core.Context;
 import io.vertx.core.Vertx;
+import org.hibernate.reactive.mutiny.impl.MutinySessionImpl;
 
 @Recorder
 public class HibernateReactiveRecorder {
@@ -115,7 +117,7 @@ public class HibernateReactiveRecorder {
                         // TODO get the session from vert.x context or open it (similar to Panache.getSession)
                         // To open, use SessionFactory#openSessionWithLazyConnectionOpening -> returns Mutiny.Session
 
-                        return getSession(DEFAULT_PERSISTENCE_UNIT_NAME);
+                        return getSession(persistenceUnitName);
                     }
                 };
             }
@@ -136,7 +138,7 @@ public class HibernateReactiveRecorder {
             // reuse the existing reactive session
             return current;
         } else {
-            if (context.getLocal(SESSION_ON_DEMAND_KEY) != null) {
+            if (true) {
                 // This will keep track of all on-demand opened sessions
                 Set<String> onDemandSessionsCreated = context.getLocal(SESSION_ON_DEMAND_OPENED_KEY);
                 if (onDemandSessionsCreated == null) {
@@ -153,10 +155,19 @@ public class HibernateReactiveRecorder {
                     onDemandSessionsCreated.add(persistenceUnitName);
                     Mutiny.SessionFactory sessionFactory = createSessionFactory(persistenceUnitName);
 
+
+
                     // To open, use SessionFactory#openSessionWithLazyConnectionOpening -> returns Mutiny.Session
                     // createSessionInSnapshot
-                    Mutiny.Session session = sessionFactory.createSession();
+                    MutinySessionImpl session = (MutinySessionImpl) sessionFactory.createSession();
+
+
+                    Uni<Void> voidUni = session.beginTransaction();
+
                     context.putLocal(key, session);
+
+
+
                     return session;
                 }
             } else {
