@@ -62,15 +62,9 @@ public class TransactionalInterceptor {
     static <T> Uni<T> withTransactionalSessionOnDemand(Supplier<Uni<T>> work) {
         // TODO register that we're in @Transactional so that @WithSessionOnDemand can detect it and fail
 
-        // TODO register that we're in @Transactional so that session delegators can detect it and create a session if necessary
-
         // TODO check that there's no other session opened by session delegators for another PU
 
         // TODO check that there's no statelessSession opened by statelessSession delegators
-
-        // TODO on exception thrown by "work", check if it's a rollback transaction (see @Transaction.rollbackOn)
-        //   and if so, trigger the rollback
-        // /org/hibernate/reactive/mutiny/impl/MutinySessionImpl.java:511
 
         // TODO handle @Transactional#value -- first impl would be to fail for anything except REQUIRED
 
