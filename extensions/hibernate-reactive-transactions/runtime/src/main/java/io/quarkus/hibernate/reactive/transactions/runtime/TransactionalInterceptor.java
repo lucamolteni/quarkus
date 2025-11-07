@@ -54,7 +54,8 @@ public class TransactionalInterceptor {
     // This key is used to indicate the method was annotated with @Transactional
     // And will open a session and a transaction lazy when the first operation requrires a reactive session
     // Check HibernateReactiveRecorder.sessionSupplier to see where the session is injected
-    private static final String TRANSACTIONAL_METHOD_KEY = "hibernate.reactive.methodTransactional";
+    // TODO Luca find a way to remove the duplication between this field and TransactionalInterceptor field
+    public static final String TRANSACTIONAL_METHOD_KEY = "hibernate.reactive.methodTransactional";
 
     // This key is copied from panache and it's the marker key the WithSessionOnDemand intereceptor uses
     private static final String SESSION_ON_DEMAND_KEY = "hibernate.reactive.panache.sessionOnDemand";

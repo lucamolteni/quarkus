@@ -116,8 +116,11 @@ public class HibernateReactiveRecorder {
         };
     }
 
-    // This key is used to indicate that reactive transaction should be opened lazily/on-demand (when needed) in the current vertx context
-    public static final String TRANSACTION_ON_DEMAND_KEY = "hibernate.reactive.panache.transactionOnDemand";
+    // This key is used to indicate the method was annotated with @Transactional
+    // And will open a session and a transaction lazy when the first operation requrires a reactive session
+    // Check HibernateReactiveRecorder.sessionSupplier to see where the session is injected
+    // TODO Luca find a way to remove the duplication between this field and TransactionalInterceptor TRANSACTIONAL_METHOD_KEY field
+    public static final String TRANSACTIONAL_METHOD_KEY = "hibernate.reactive.methodTransactional";
 
     public static Mutiny.Session getSession(String persistenceUnitName) {
         Context context = Vertx.currentContext();
@@ -127,7 +130,7 @@ public class HibernateReactiveRecorder {
         // reuse the existing reactive session
         if (openedSession.isPresent()) {
             return openedSession.get().session();
-        } else if (context.getLocal(TRANSACTION_ON_DEMAND_KEY) == null) {
+        } else if (context.getLocal(TRANSACTIONAL_METHOD_KEY) == null) {
             throw new IllegalStateException("No current Mutiny.Session found"
                     + "\n\t- no reactive session was found in the Vert.x context and the context was not marked to open a new session lazily"
                     + "\n\t- a session is opened automatically for JAX-RS resource methods annotated with an HTTP method (@GET, @POST, etc.); inherited annotations are not taken into account"
