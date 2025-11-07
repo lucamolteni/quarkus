@@ -53,17 +53,12 @@ public class OpenedSessionState {
 
     public Uni<Void> closeAllOpenedSessions(Context context) {
         Set<String> onDemandSessionCreated = openedSessionContextSet(context);
-        // This if statement can probably be removed
-        if (!onDemandSessionCreated.isEmpty()) {
-            List<Uni<Void>> closedSessionsUnis = new ArrayList<>();
-            for (String s : onDemandSessionCreated) {
-                closedSessionsUnis.add(closeAndRemoveSession(context, s));
-            }
-            context.removeLocal(SESSIONS_ON_DEMAND_OPENED_KEY);
-            return Uni.combine().all().unis(closedSessionsUnis).discardItems();
-        } else {
-            return Uni.createFrom().voidItem();
+        List<Uni<Void>> closedSessionsUnis = new ArrayList<>();
+        for (String s : onDemandSessionCreated) {
+            closedSessionsUnis.add(closeAndRemoveSession(context, s));
         }
+        context.removeLocal(SESSIONS_ON_DEMAND_OPENED_KEY);
+        return Uni.combine().all().unis(closedSessionsUnis).discardItems();
     }
 
     public Mutiny.Session createNewSession(String persistenceUnitName, Context context) {
