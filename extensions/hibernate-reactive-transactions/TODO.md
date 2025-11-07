@@ -1,5 +1,6 @@
 # TODO 
 
+use a better key for transactionality
 Injection of the Mutiny session
 MixWithOnSessionOnDemandTest
 MixWithTransaction
@@ -13,3 +14,6 @@ io/quarkus/hibernate/reactive/panache/common/runtime/SessionOperations.java:79 w
 io/quarkus/hibernate/reactive/panache/common/runtime/SessionOperations.java:196 will be used to inject the Mutiny.Session in here io/quarkus/hibernate/reactive/runtime/HibernateReactiveRecorder.java:102
 
 io/quarkus/hibernate/orm/runtime/HibernateOrmRecorder.java:172
+
+# Done
+
