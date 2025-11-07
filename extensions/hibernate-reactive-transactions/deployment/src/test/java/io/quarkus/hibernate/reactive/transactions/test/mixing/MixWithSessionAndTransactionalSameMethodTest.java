@@ -14,7 +14,7 @@ import io.quarkus.test.QuarkusUnitTest;
 import io.quarkus.test.vertx.RunOnVertxContext;
 import io.smallrye.mutiny.Uni;
 
-public class MixWithSessionAndWithTransactionTest {
+public class MixWithSessionAndTransactionalSameMethodTest {
 
     @RegisterExtension
     static final QuarkusUnitTest config = new QuarkusUnitTest()
