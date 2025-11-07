@@ -53,11 +53,11 @@ public class TransactionalInterceptor {
         return context.getMethod().getReturnType().equals(Uni.class);
     }
 
-    // This key is used to indicate that reactive sessions should be opened lazily/on-demand (when needed) in the current vertx context
-    private static final String SESSION_ON_DEMAND_KEY = "hibernate.reactive.panache.sessionOnDemand";
+    // This key is used to indicate that reactive transaction should be opened lazily/on-demand (when needed) in the current vertx context
+    private static final String TRANSACTION_ON_DEMAND_KEY = "hibernate.reactive.panache.transactionOnDemand";
 
     // This key is used to keep track of the Set<String> sessions created on demand
-    private static final String SESSION_ON_DEMAND_OPENED_KEY = "hibernate.reactive.panache.sessionOnDemandOpened";
+    private static final String TRANSACTION_ON_DEMAND_OPENED_KEY = "hibernate.reactive.panache.transactionOnDemandOpened";
 
     static <T> Uni<T> withTransactionalSessionOnDemand(Supplier<Uni<T>> work) {
         // TODO register that we're in @Transactional so that @WithSessionOnDemand can detect it and fail
@@ -70,30 +70,28 @@ public class TransactionalInterceptor {
 
         // io/quarkus/hibernate/reactive/panache/common/runtime/SessionOperations.java:79
         Context context = vertxContext();
-        if (context.getLocal(SESSION_ON_DEMAND_KEY) != null) {
+        if (context.getLocal(TRANSACTION_ON_DEMAND_KEY) != null) {
             // context already marked - no need to set the key and close the session
             return work.get();
         } else {
+            // mark the lazy session
+            context.putLocal(TRANSACTION_ON_DEMAND_KEY, true);
             // perform the work and eventually close the session and remove the key
             return work.get().eventually(() -> {
-                return closeSession(context);
+                Set<String> onDemandSessionCreated = context.getLocal(TRANSACTION_ON_DEMAND_OPENED_KEY);
+                // Close only the sessions that have been created lazily (onDemand) in withSession
+                // See this.getSession(String persistenceUnitName)
+                if (onDemandSessionCreated != null) {
+                    List<Uni<Void>> closedSessions = new ArrayList<>();
+                    for (String s : onDemandSessionCreated) {
+                        closedSessions.add(closeSession(s));
+                    }
+                    context.removeLocal(TRANSACTION_ON_DEMAND_OPENED_KEY);
+                    return Uni.combine().all().unis(closedSessions).discardItems();
+                } else {
+                    return Uni.createFrom().voidItem();
+                }
             });
-        }
-    }
-
-    private static Uni<Void> closeSession(Context context) {
-        Set<String> onDemandSessionCreated = context.getLocal(SESSION_ON_DEMAND_OPENED_KEY);
-        // Close only the sessions that have been created lazily (onDemand) in withSession
-        // See this.getSession(String persistenceUnitName)
-        if (onDemandSessionCreated != null) {
-            List<Uni<Void>> closedSessions = new ArrayList<>();
-            for (String s : onDemandSessionCreated) {
-                closedSessions.add(closeSession(s));
-            }
-            context.removeLocal(SESSION_ON_DEMAND_OPENED_KEY);
-            return Uni.combine().all().unis(closedSessions).discardItems();
-        } else {
-            return Uni.createFrom().voidItem();
         }
     }
 

@@ -16,6 +16,8 @@ import io.vertx.sqlclient.Row;
 import io.vertx.sqlclient.RowSet;
 import io.vertx.sqlclient.SqlConnection;
 
+import static io.quarkus.hibernate.reactive.runtime.HibernateReactiveRecorder.TRANSACTION_ON_DEMAND_KEY;
+
 /**
  * A pool that handles transaction based on Vert.x context set by the @Transactional interceptor.
  */
@@ -64,11 +66,10 @@ public class TransactionalContextPool implements Pool {
 
         Context context = Vertx.currentContext();
 
-        // Context during DB Validation is null
+        // Vert.x context during DB Validation in startup is null
         // When using reactive in a @Transactional method, the context is surely duplicated
         if(context != null && ((ContextInternal)context).isDuplicate()) {
-            // TODO Luca use a better key
-            Object createTransaction = context.getLocal("createTransaction");
+            Object createTransaction = context.getLocal(TRANSACTION_ON_DEMAND_KEY);
             return createTransaction != null && (boolean) createTransaction;
         } else {
             return false;

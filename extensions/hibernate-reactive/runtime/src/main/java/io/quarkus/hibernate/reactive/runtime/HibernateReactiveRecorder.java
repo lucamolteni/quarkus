@@ -124,11 +124,11 @@ public class HibernateReactiveRecorder {
         };
     }
 
-    // This key is used to indicate that reactive sessions should be opened lazily/on-demand (when needed) in the current vertx context
-    private static final String SESSION_ON_DEMAND_KEY = "hibernate.reactive.panache.sessionOnDemand";
+    // This key is used to indicate that reactive transaction should be opened lazily/on-demand (when needed) in the current vertx context
+    public static final String TRANSACTION_ON_DEMAND_KEY = "hibernate.reactive.panache.transactionOnDemand";
 
     // This key is used to keep track of the Set<String> sessions created on demand
-    private static final String SESSION_ON_DEMAND_OPENED_KEY = "hibernate.reactive.panache.sessionOnDemandOpened";
+    private static final String TRANSACTION_ON_DEMAND_OPENED_KEY = "hibernate.reactive.panache.transactionOnDemandOpened";
 
     public static Mutiny.Session getSession(String persistenceUnitName) {
         Context context = Vertx.currentContext();
@@ -138,12 +138,12 @@ public class HibernateReactiveRecorder {
             // reuse the existing reactive session
             return current;
         } else {
-            if (true) {
+            if (context.getLocal(TRANSACTION_ON_DEMAND_KEY) != null) {
                 // This will keep track of all on-demand opened sessions
-                Set<String> onDemandSessionsCreated = context.getLocal(SESSION_ON_DEMAND_OPENED_KEY);
+                Set<String> onDemandSessionsCreated = context.getLocal(TRANSACTION_ON_DEMAND_OPENED_KEY);
                 if (onDemandSessionsCreated == null) {
                     onDemandSessionsCreated = new HashSet<>();
-                    context.putLocal(SESSION_ON_DEMAND_OPENED_KEY, onDemandSessionsCreated);
+                    context.putLocal(TRANSACTION_ON_DEMAND_OPENED_KEY, onDemandSessionsCreated);
                 }
 
                 if (onDemandSessionsCreated.contains(persistenceUnitName)) {
@@ -158,7 +158,8 @@ public class HibernateReactiveRecorder {
                     // To open, use SessionFactory#openSessionWithLazyConnectionOpening -> returns Mutiny.Session
                     // createSessionInSnapshot
 
-                    context.putLocal("createTransaction", true);
+                    // This is replaced by the TRANSACTION_ON_DEMAND_KEY inside the intereceptor
+//                    context.putLocal("createTransaction", true);
                     MutinySessionImpl session = (MutinySessionImpl) sessionFactory.createSession();
 
                     context.putLocal(key, session);
