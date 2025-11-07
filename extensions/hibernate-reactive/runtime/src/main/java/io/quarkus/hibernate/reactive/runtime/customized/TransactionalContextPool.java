@@ -63,9 +63,10 @@ public class TransactionalContextPool implements Pool {
     private boolean shouldOpenTransaction() {
 
         Context context = Vertx.currentContext();
-        System.out.println("TransactionalContextPool" + context);
 
-        if(((ContextInternal)context).isDuplicate()) {
+        // Context during DB Validation is null
+        // When using reactive in a @Transactional method, the context is surely duplicated
+        if(context != null && ((ContextInternal)context).isDuplicate()) {
             // TODO Luca use a better key
             Object createTransaction = context.getLocal("createTransaction");
             return createTransaction != null && (boolean) createTransaction;
