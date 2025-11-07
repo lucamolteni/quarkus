@@ -122,10 +122,11 @@ public class HibernateReactiveRecorder {
     public static Mutiny.Session getSession(String persistenceUnitName) {
         Context context = Vertx.currentContext();
 
-        Optional<Mutiny.Session> openedSession = OPENED_SESSIONS_STATE.getOpenedSession(context, persistenceUnitName);
+        Optional<OpenedSessionsState.SessionWithKey> openedSession =
+                OPENED_SESSIONS_STATE.getOpenedSession(context, persistenceUnitName);
         // reuse the existing reactive session
         if (openedSession.isPresent()) {
-            return openedSession.get();
+            return openedSession.get().session();
         } else if (context.getLocal(TRANSACTION_ON_DEMAND_KEY) == null) {
             throw new IllegalStateException("No current Mutiny.Session found"
                     + "\n\t- no reactive session was found in the Vert.x context and the context was not marked to open a new session lazily"

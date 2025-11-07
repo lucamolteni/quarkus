@@ -1,17 +1,6 @@
 package io.quarkus.hibernate.reactive.runtime;
 
-import io.quarkus.arc.Arc;
-import io.quarkus.arc.ClientProxy;
-import io.quarkus.arc.impl.ComputingCache;
-import io.quarkus.hibernate.orm.PersistenceUnit;
-import io.smallrye.mutiny.Uni;
-import io.vertx.core.Context;
-import io.vertx.core.Vertx;
-import org.hibernate.reactive.common.spi.Implementor;
-import org.hibernate.reactive.context.impl.BaseKey;
-import org.hibernate.reactive.mutiny.Mutiny;
-import org.hibernate.reactive.context.Context.Key;
-import org.hibernate.reactive.mutiny.impl.MutinySessionImpl;
+import static io.quarkus.hibernate.orm.runtime.PersistenceUnitUtil.DEFAULT_PERSISTENCE_UNIT_NAME;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -19,7 +8,18 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
-import static io.quarkus.hibernate.orm.runtime.PersistenceUnitUtil.DEFAULT_PERSISTENCE_UNIT_NAME;
+import org.hibernate.reactive.common.spi.Implementor;
+import org.hibernate.reactive.context.Context.Key;
+import org.hibernate.reactive.context.impl.BaseKey;
+import org.hibernate.reactive.mutiny.Mutiny;
+import org.hibernate.reactive.mutiny.impl.MutinySessionImpl;
+
+import io.quarkus.arc.Arc;
+import io.quarkus.arc.ClientProxy;
+import io.quarkus.arc.impl.ComputingCache;
+import io.quarkus.hibernate.orm.PersistenceUnit;
+import io.smallrye.mutiny.Uni;
+import io.vertx.core.Context;
 
 public class OpenedSessionsState {
     // This key is used to keep track of the Set<String> sessions created on demand
@@ -31,24 +31,20 @@ public class OpenedSessionsState {
     private final ComputingCache<String, Mutiny.SessionFactory> sessionFactories = new ComputingCache<>(
             k -> createSessionFactory(k));
 
-    public Optional<Mutiny.Session> getOpenedSession(Context context, String persistenceUnitName) {
-        org.hibernate.reactive.context.Context.Key<Mutiny.Session> sessionKey = sessionKeys.getValue(persistenceUnitName);
-        Mutiny.Session current = context.getLocal(sessionKey);
-        if (current != null && current.isOpen()) {
-            return Optional.of(current);
-        } else {
-            return Optional.empty();
-        }
+    public record SessionWithKey(org.hibernate.reactive.context.Context.Key<Mutiny.Session> key, Mutiny.Session session) {
+
     }
 
-    private Set<String> openedSessionContextSet(Context context) {
-        // This will keep track of all on-demand opened sessions
-        Set<String> onDemandSessionsCreated = context.getLocal(SESSIONS_ON_DEMAND_OPENED_KEY);
-        if (onDemandSessionsCreated == null) {
-            onDemandSessionsCreated = new HashSet<>();
-            context.putLocal(SESSIONS_ON_DEMAND_OPENED_KEY, onDemandSessionsCreated);
-        }
-        return onDemandSessionsCreated;
+    public Optional<SessionWithKey> getOpenedSession(Context context, String persistenceUnitName) {
+        Key<Mutiny.Session> sessionKey = sessionKeys.getValue(persistenceUnitName);
+        return getOpenedSession(context, sessionKey);
+    }
+
+    private static Optional<SessionWithKey> getOpenedSession(Context context, Key<Mutiny.Session> sessionKey) {
+        Mutiny.Session current = context.getLocal(sessionKey);
+        return Optional.ofNullable(current)
+                .filter(s -> s.isOpen())
+                .map(s -> new SessionWithKey(sessionKey, s));
     }
 
     public Uni<Void> closeAllOpenedSessions(Context context) {
@@ -58,7 +54,8 @@ public class OpenedSessionsState {
         }
         List<Uni<Void>> closedSessionsUnis = new ArrayList<>();
         for (String s : onDemandSessionCreated) {
-            closedSessionsUnis.add(closeAndRemoveSession(context, s));
+            Optional<SessionWithKey> openedSession = getOpenedSession(context, s);
+            closedSessionsUnis.add(closeAndRemoveSession(context, openedSession));
         }
         context.removeLocal(SESSIONS_ON_DEMAND_OPENED_KEY);
         return Uni.combine().all().unis(closedSessionsUnis).discardItems();
@@ -75,26 +72,26 @@ public class OpenedSessionsState {
         Mutiny.SessionFactory sessionFactory = sessionFactories.getValue(persistenceUnitName);
         MutinySessionImpl session = (MutinySessionImpl) sessionFactory.createSession();
 
-        org.hibernate.reactive.context.Context.Key<Mutiny.Session> sessionKey = sessionKeys.getValue(persistenceUnitName);
+        Key<Mutiny.Session> sessionKey = sessionKeys.getValue(persistenceUnitName);
         context.putLocal(sessionKey, session);
 
         return session;
     }
 
-    private Uni<Void> closeAndRemoveSession(Context context, String persistenceUnitName) {
-        return getOpenedSession(context, persistenceUnitName).map(s -> s.close()
-                .eventually(() -> context.removeLocal(sessionKeys.getValue(persistenceUnitName))))
-                .orElse(Uni.createFrom().voidItem());
+    private Set<String> openedSessionContextSet(Context context) {
+        // This will keep track of all on-demand opened sessions
+        Set<String> onDemandSessionsCreated = context.getLocal(SESSIONS_ON_DEMAND_OPENED_KEY);
+        if (onDemandSessionsCreated == null) {
+            onDemandSessionsCreated = new HashSet<>();
+            context.putLocal(SESSIONS_ON_DEMAND_OPENED_KEY, onDemandSessionsCreated);
+        }
+        return onDemandSessionsCreated;
     }
 
-    private Mutiny.Session getCurrentSession(String persistenceUnitName) {
-        io.vertx.core.Context context = Vertx.currentContext();
-        Key<Mutiny.Session> sessionKey = createSessionFactoryAndStoreKey(persistenceUnitName);
-        Mutiny.Session current = context.getLocal(sessionKey);
-        if (current != null && current.isOpen()) {
-            return current;
-        }
-        return null;
+    private Uni<Void> closeAndRemoveSession(Context context, Optional<SessionWithKey> openSession) {
+        return openSession.map((SessionWithKey s) -> s.session.close()
+                .eventually(() -> context.removeLocal(s.key)))
+                .orElse(Uni.createFrom().voidItem());
     }
 
     private Key<Mutiny.Session> createSessionFactoryAndStoreKey(String persistenceUnitName) {
