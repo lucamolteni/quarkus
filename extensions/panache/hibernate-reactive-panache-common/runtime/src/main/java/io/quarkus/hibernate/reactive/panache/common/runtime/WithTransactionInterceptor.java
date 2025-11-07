@@ -1,5 +1,7 @@
 package io.quarkus.hibernate.reactive.panache.common.runtime;
 
+import io.smallrye.mutiny.Uni;
+import io.vertx.core.Context;
 import jakarta.annotation.Priority;
 import jakarta.interceptor.AroundInvoke;
 import jakarta.interceptor.Interceptor;
@@ -7,16 +9,28 @@ import jakarta.interceptor.InvocationContext;
 
 import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 
+import static io.quarkus.hibernate.reactive.runtime.HibernateReactiveRecorder.TRANSACTIONAL_METHOD_KEY;
+
 @WithTransaction
 @Interceptor
 @Priority(Interceptor.Priority.PLATFORM_BEFORE + 200)
 public class WithTransactionInterceptor extends AbstractUniInterceptor {
+
+    public static final String WITH_TRANSACTION_METHOD_KEY = "hibernate.reactive.withTransaction";
 
     @AroundInvoke
     public Object intercept(InvocationContext context) throws Exception {
         // Bindings are validated at build time - method-level binding declared on a method that does not return Uni results in a build failure
         // However, a class-level binding implies that methods that do not return Uni are just a no-op
         if (isUniReturnType(context)) {
+            Context vertxContext = SessionOperations.vertxContext();
+            if(vertxContext.getLocal(TRANSACTIONAL_METHOD_KEY) != null) {
+                return Uni.createFrom().failure(
+                        new UnsupportedOperationException(
+                                "Cannot call a method annotated with @WithTransaction from a method annotated with @Transactional"));
+            }
+
+            vertxContext.putLocal(WITH_TRANSACTION_METHOD_KEY, true);
             String persistenceUnitName = getPersistenceUnitName(context);
             return SessionOperations.withTransaction(persistenceUnitName, () -> proceedUni(context));
         }

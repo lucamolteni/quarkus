@@ -258,7 +258,7 @@ public final class SessionOperations {
      * @throws IllegalStateException If no vertx context is found or is not a safe context as mandated by the
      *         {@link VertxContextSafetyToggle}
      */
-    private static Context vertxContext() {
+    public static Context vertxContext() {
         Context context = Vertx.currentContext();
         if (context != null) {
             VertxContextSafetyToggle.validateContextIfExists(ERROR_MSG, ERROR_MSG);

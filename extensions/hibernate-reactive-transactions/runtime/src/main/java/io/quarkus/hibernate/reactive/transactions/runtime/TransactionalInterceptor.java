@@ -14,6 +14,8 @@ import io.smallrye.mutiny.Uni;
 import io.vertx.core.Context;
 import io.vertx.core.Vertx;
 
+import static io.quarkus.hibernate.reactive.runtime.HibernateReactiveRecorder.WITH_TRANSACTION_METHOD_KEY;
+
 
 /**
  * An interceptor which manages reactive transactions for methods
@@ -66,6 +68,12 @@ public class TransactionalInterceptor {
             return Uni.createFrom().failure(
                     new UnsupportedOperationException(
                             "Cannot call a method annotated with @Transactional from a method annotated with @WithSessionOnDemand"));
+        }
+
+        if(context.getLocal(WITH_TRANSACTION_METHOD_KEY) != null) {
+            return Uni.createFrom().failure(
+                    new UnsupportedOperationException(
+                            "Cannot call a method annotated with @Transactional from a method annotated with @WithTransaction"));
         }
 
         // TODO check that there's no other session opened by session delegators for another PU
