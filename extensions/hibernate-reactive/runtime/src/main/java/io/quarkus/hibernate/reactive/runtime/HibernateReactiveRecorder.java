@@ -11,7 +11,7 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-import io.smallrye.mutiny.Uni;
+import io.quarkus.arc.impl.ComputingCache;
 import org.hibernate.SessionFactory;
 import org.hibernate.reactive.common.spi.Implementor;
 import org.hibernate.reactive.context.impl.BaseKey;
@@ -130,9 +130,15 @@ public class HibernateReactiveRecorder {
     // This key is used to keep track of the Set<String> sessions created on demand
     private static final String TRANSACTION_ON_DEMAND_OPENED_KEY = "hibernate.reactive.panache.transactionOnDemandOpened";
 
+    private static final ComputingCache<String, org.hibernate.reactive.context.Context.Key<Mutiny.Session>> SESSION_KEY_MAP = new ComputingCache<>(
+            k -> createSessionKey(k));
+
+    private static final ComputingCache<String, Mutiny.SessionFactory> SESSION_FACTORY_MAP = new ComputingCache<>(
+            k -> createSessionFactory(k));
+
     public static Mutiny.Session getSession(String persistenceUnitName) {
         Context context = Vertx.currentContext();
-        org.hibernate.reactive.context.Context.Key<Mutiny.Session> key = createSessionKey(persistenceUnitName);
+        org.hibernate.reactive.context.Context.Key<Mutiny.Session> key = SESSION_KEY_MAP.getValue(persistenceUnitName);
         Mutiny.Session current = context.getLocal(key);
         if (current != null && current.isOpen()) {
             // reuse the existing reactive session
@@ -153,18 +159,11 @@ public class HibernateReactiveRecorder {
                     // open a new reactive session and store it in the vertx duplicated context
                     // the context was marked as "lazy" which means that the session will be eventually closed
                     onDemandSessionsCreated.add(persistenceUnitName);
-                    Mutiny.SessionFactory sessionFactory = createSessionFactory(persistenceUnitName);
 
-                    // To open, use SessionFactory#openSessionWithLazyConnectionOpening -> returns Mutiny.Session
-                    // createSessionInSnapshot
+                    Mutiny.SessionFactory sessionFactory = SESSION_FACTORY_MAP.getValue(persistenceUnitName);
 
-                    // This is replaced by the TRANSACTION_ON_DEMAND_KEY inside the intereceptor
-//                    context.putLocal("createTransaction", true);
                     MutinySessionImpl session = (MutinySessionImpl) sessionFactory.createSession();
-
                     context.putLocal(key, session);
-
-
 
                     return session;
                 }
@@ -179,7 +178,8 @@ public class HibernateReactiveRecorder {
 
     public static Mutiny.Session getCurrentSession(String persistenceUnitName) {
         Context context = Vertx.currentContext();
-        Mutiny.Session current = context.getLocal(createSessionKey(persistenceUnitName));
+        org.hibernate.reactive.context.Context.Key<Mutiny.Session> sessionKey = createSessionKey(persistenceUnitName);
+        Mutiny.Session current = context.getLocal(sessionKey);
         if (current != null && current.isOpen()) {
             return current;
         }
