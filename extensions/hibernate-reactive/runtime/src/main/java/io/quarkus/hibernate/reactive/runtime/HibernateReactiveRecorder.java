@@ -1,8 +1,5 @@
 package io.quarkus.hibernate.reactive.runtime;
 
-import static io.quarkus.hibernate.orm.runtime.PersistenceUnitUtil.DEFAULT_PERSISTENCE_UNIT_NAME;
-
-import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -11,19 +8,13 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-import io.quarkus.arc.impl.ComputingCache;
 import org.hibernate.SessionFactory;
-import org.hibernate.reactive.common.spi.Implementor;
-import org.hibernate.reactive.context.impl.BaseKey;
 import org.hibernate.reactive.mutiny.Mutiny;
 import org.hibernate.reactive.mutiny.delegation.MutinySessionDelegator;
 import org.hibernate.reactive.mutiny.delegation.MutinyStatelessSessionDelegator;
 
 import io.quarkus.arc.ActiveResult;
-import io.quarkus.arc.Arc;
-import io.quarkus.arc.ClientProxy;
 import io.quarkus.arc.SyntheticCreationalContext;
-import io.quarkus.hibernate.orm.PersistenceUnit;
 import io.quarkus.hibernate.orm.runtime.HibernateOrmRuntimeConfig;
 import io.quarkus.hibernate.orm.runtime.JPAConfig;
 import io.quarkus.hibernate.orm.runtime.PersistenceUnitUtil;
@@ -33,7 +24,6 @@ import io.quarkus.runtime.RuntimeValue;
 import io.quarkus.runtime.annotations.Recorder;
 import io.vertx.core.Context;
 import io.vertx.core.Vertx;
-import org.hibernate.reactive.mutiny.impl.MutinySessionImpl;
 
 @Recorder
 public class HibernateReactiveRecorder {
@@ -42,6 +32,8 @@ public class HibernateReactiveRecorder {
     public HibernateReactiveRecorder(final RuntimeValue<HibernateOrmRuntimeConfig> runtimeConfig) {
         this.runtimeConfig = runtimeConfig;
     }
+
+    public static final OpenedSessionState OPENED_SESSION_STATE = new OpenedSessionState();
 
     /**
      * The feature needs to be initialized, even if it's not enabled.
@@ -127,87 +119,21 @@ public class HibernateReactiveRecorder {
     // This key is used to indicate that reactive transaction should be opened lazily/on-demand (when needed) in the current vertx context
     public static final String TRANSACTION_ON_DEMAND_KEY = "hibernate.reactive.panache.transactionOnDemand";
 
-    // This key is used to keep track of the Set<String> sessions created on demand
-    private static final String TRANSACTION_ON_DEMAND_OPENED_KEY = "hibernate.reactive.panache.transactionOnDemandOpened";
-
-    private static final ComputingCache<String, org.hibernate.reactive.context.Context.Key<Mutiny.Session>> SESSION_KEY_MAP = new ComputingCache<>(
-            k -> createSessionKey(k));
-
-    private static final ComputingCache<String, Mutiny.SessionFactory> SESSION_FACTORY_MAP = new ComputingCache<>(
-            k -> createSessionFactory(k));
-
     public static Mutiny.Session getSession(String persistenceUnitName) {
         Context context = Vertx.currentContext();
-        org.hibernate.reactive.context.Context.Key<Mutiny.Session> key = SESSION_KEY_MAP.getValue(persistenceUnitName);
-        Mutiny.Session current = context.getLocal(key);
-        if (current != null && current.isOpen()) {
-            // reuse the existing reactive session
-            return current;
+
+        Optional<Mutiny.Session> openedSession = OPENED_SESSION_STATE.getOpenedSession(context, persistenceUnitName);
+        // reuse the existing reactive session
+        if (openedSession.isPresent()) {
+            return openedSession.get();
+        } else if (context.getLocal(TRANSACTION_ON_DEMAND_KEY) == null) {
+            throw new IllegalStateException("No current Mutiny.Session found"
+                    + "\n\t- no reactive session was found in the Vert.x context and the context was not marked to open a new session lazily"
+                    + "\n\t- a session is opened automatically for JAX-RS resource methods annotated with an HTTP method (@GET, @POST, etc.); inherited annotations are not taken into account"
+                    + "\n\t- you may need to annotate the business method with @Transactional");
         } else {
-            if (context.getLocal(TRANSACTION_ON_DEMAND_KEY) != null) {
-                // This will keep track of all on-demand opened sessions
-                Set<String> onDemandSessionsCreated = context.getLocal(TRANSACTION_ON_DEMAND_OPENED_KEY);
-                if (onDemandSessionsCreated == null) {
-                    onDemandSessionsCreated = new HashSet<>();
-                    context.putLocal(TRANSACTION_ON_DEMAND_OPENED_KEY, onDemandSessionsCreated);
-                }
-
-                if (onDemandSessionsCreated.contains(persistenceUnitName)) {
-                    // a new reactive session is opened in a previous stage, reuse it
-                    return getCurrentSession(persistenceUnitName);
-                } else {
-                    // open a new reactive session and store it in the vertx duplicated context
-                    // the context was marked as "lazy" which means that the session will be eventually closed
-                    onDemandSessionsCreated.add(persistenceUnitName);
-
-                    Mutiny.SessionFactory sessionFactory = SESSION_FACTORY_MAP.getValue(persistenceUnitName);
-
-                    MutinySessionImpl session = (MutinySessionImpl) sessionFactory.createSession();
-                    context.putLocal(key, session);
-
-                    return session;
-                }
-            } else {
-                throw new IllegalStateException("No current Mutiny.Session found"
-                        + "\n\t- no reactive session was found in the Vert.x context and the context was not marked to open a new session lazily"
-                        + "\n\t- a session is opened automatically for JAX-RS resource methods annotated with an HTTP method (@GET, @POST, etc.); inherited annotations are not taken into account"
-                        + "\n\t- you may need to annotate the business method with @WithSession or @WithTransaction");
-            }
+            return OPENED_SESSION_STATE.createNewSession(persistenceUnitName, context);
         }
-    }
-
-    public static Mutiny.Session getCurrentSession(String persistenceUnitName) {
-        Context context = Vertx.currentContext();
-        org.hibernate.reactive.context.Context.Key<Mutiny.Session> sessionKey = createSessionKey(persistenceUnitName);
-        Mutiny.Session current = context.getLocal(sessionKey);
-        if (current != null && current.isOpen()) {
-            return current;
-        }
-        return null;
-    }
-
-    public static org.hibernate.reactive.context.Context.Key<Mutiny.Session> createSessionKey(String persistenceUnitName) {
-        Mutiny.SessionFactory value = createSessionFactory(persistenceUnitName);
-        Implementor implementor = (Implementor) ClientProxy
-                .unwrap(value);
-        return new BaseKey<>(Mutiny.Session.class, implementor.getUuid());
-    }
-
-    public static Mutiny.SessionFactory createSessionFactory(String persistenceunitname) {
-        Mutiny.SessionFactory sessionFactory;
-
-        // Note that Mutiny.SessionFactory is @ApplicationScoped bean - it's safe to use the cached client proxy
-        if (DEFAULT_PERSISTENCE_UNIT_NAME.equals(persistenceunitname)) {
-            sessionFactory = Arc.container().instance(Mutiny.SessionFactory.class).get();
-        } else {
-            sessionFactory = Arc.container().instance(Mutiny.SessionFactory.class,
-                    new PersistenceUnit.PersistenceUnitLiteral(persistenceunitname)).get();
-        }
-
-        if (sessionFactory == null) {
-            throw new IllegalStateException("Mutiny.SessionFactory bean not found");
-        }
-        return sessionFactory;
     }
 
     public Function<SyntheticCreationalContext<Mutiny.StatelessSession>, Mutiny.StatelessSession> statelessSessionSupplier(

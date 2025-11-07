@@ -1,22 +1,18 @@
 package io.quarkus.hibernate.reactive.transactions.runtime;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Set;
 import java.util.function.Supplier;
 
+import io.quarkus.hibernate.reactive.runtime.HibernateReactiveRecorder;
 import jakarta.interceptor.AroundInvoke;
 import jakarta.interceptor.Interceptor;
 import jakarta.interceptor.InvocationContext;
 import jakarta.transaction.Transactional;
 
-import org.hibernate.reactive.mutiny.Mutiny;
-
-import io.quarkus.hibernate.reactive.runtime.HibernateReactiveRecorder;
 import io.quarkus.vertx.core.runtime.context.VertxContextSafetyToggle;
 import io.smallrye.mutiny.Uni;
 import io.vertx.core.Context;
 import io.vertx.core.Vertx;
+
 
 /**
  * An interceptor which manages reactive transactions for methods
@@ -56,9 +52,6 @@ public class TransactionalInterceptor {
     // This key is used to indicate that reactive transaction should be opened lazily/on-demand (when needed) in the current vertx context
     private static final String TRANSACTION_ON_DEMAND_KEY = "hibernate.reactive.panache.transactionOnDemand";
 
-    // This key is used to keep track of the Set<String> sessions created on demand
-    private static final String TRANSACTION_ON_DEMAND_OPENED_KEY = "hibernate.reactive.panache.transactionOnDemandOpened";
-
     static <T> Uni<T> withTransactionalSessionOnDemand(Supplier<Uni<T>> work) {
         // TODO register that we're in @Transactional so that @WithSessionOnDemand can detect it and fail
 
@@ -78,19 +71,7 @@ public class TransactionalInterceptor {
             context.putLocal(TRANSACTION_ON_DEMAND_KEY, true);
             // perform the work and eventually close the session and remove the key
             return work.get().eventually(() -> {
-                Set<String> onDemandSessionCreated = context.getLocal(TRANSACTION_ON_DEMAND_OPENED_KEY);
-                // Close only the sessions that have been created lazily (onDemand) in withSession
-                // See this.getSession(String persistenceUnitName)
-                if (onDemandSessionCreated != null) {
-                    List<Uni<Void>> closedSessions = new ArrayList<>();
-                    for (String s : onDemandSessionCreated) {
-                        closedSessions.add(closeSession(s));
-                    }
-                    context.removeLocal(TRANSACTION_ON_DEMAND_OPENED_KEY);
-                    return Uni.combine().all().unis(closedSessions).discardItems();
-                } else {
-                    return Uni.createFrom().voidItem();
-                }
+                return HibernateReactiveRecorder.OPENED_SESSION_STATE.closeAllOpenedSessions(context);
             });
         }
     }
@@ -109,16 +90,5 @@ public class TransactionalInterceptor {
         } else {
             throw new IllegalStateException("No current Vertx context found");
         }
-    }
-
-    static Uni<Void> closeSession(String persistenceUnitName) {
-        Context context = vertxContext();
-        org.hibernate.reactive.context.Context.Key<Mutiny.Session> key = HibernateReactiveRecorder
-                .createSessionKey(persistenceUnitName);
-        Mutiny.Session current = context.getLocal(key);
-        if (current != null && current.isOpen()) {
-            return current.close().eventually(() -> context.removeLocal(key));
-        }
-        return Uni.createFrom().voidItem();
     }
 }
