@@ -3,6 +3,7 @@ package io.quarkus.hibernate.reactive.transactions.runtime;
 import java.util.function.Supplier;
 
 import io.quarkus.hibernate.reactive.runtime.HibernateReactiveRecorder;
+import jakarta.annotation.Priority;
 import jakarta.interceptor.AroundInvoke;
 import jakarta.interceptor.Interceptor;
 import jakarta.interceptor.InvocationContext;
@@ -20,6 +21,7 @@ import io.vertx.core.Vertx;
  */
 @Transactional
 @Interceptor
+@Priority(Interceptor.Priority.PLATFORM_BEFORE + 300)
 public class TransactionalInterceptor {
 
     public static final String CURRENT_SESSION_INTERCEPTOR_KEY = "current_session_interceptor";
@@ -49,11 +51,21 @@ public class TransactionalInterceptor {
         return context.getMethod().getReturnType().equals(Uni.class);
     }
 
-    // This key is used to indicate that reactive transaction should be opened lazily/on-demand (when needed) in the current vertx context
-    private static final String TRANSACTION_ON_DEMAND_KEY = "hibernate.reactive.panache.transactionOnDemand";
+    // This key is used to indicate the method was annotated with @Transactional
+    // And will open a session and a transaction lazy when the first operation requrires a reactive session
+    // Check HibernateReactiveRecorder.sessionSupplier to see where the session is injected
+    private static final String TRANSACTIONAL_METHOD_KEY = "hibernate.reactive.methodTransactional";
+
+    // This key is copied from panache and it's the marker key the WithSessionOnDemand intereceptor uses
+    private static final String SESSION_ON_DEMAND_KEY = "hibernate.reactive.panache.sessionOnDemand";
 
     static <T> Uni<T> withTransactionalSessionOnDemand(Supplier<Uni<T>> work) {
-        // TODO register that we're in @Transactional so that @WithSessionOnDemand can detect it and fail
+        Context context = vertxContext();
+        if(context.getLocal(SESSION_ON_DEMAND_KEY) != null) {
+            return Uni.createFrom().failure(
+                    new UnsupportedOperationException(
+                            "Cannot call a method annotated with @Transactional from a method annotated with @WithSessionOnDemand"));
+        }
 
         // TODO check that there's no other session opened by session delegators for another PU
 
@@ -62,16 +74,14 @@ public class TransactionalInterceptor {
         // TODO handle @Transactional#value -- first impl would be to fail for anything except REQUIRED
 
         // io/quarkus/hibernate/reactive/panache/common/runtime/SessionOperations.java:79
-        Context context = vertxContext();
-        if (context.getLocal(TRANSACTION_ON_DEMAND_KEY) != null) {
-            // context already marked - no need to set the key and close the session
+        if (context.getLocal(TRANSACTIONAL_METHOD_KEY) != null) {
             return work.get();
         } else {
-            // mark the lazy session
-            context.putLocal(TRANSACTION_ON_DEMAND_KEY, true);
+            // mark this method to be @Transactional so that other Panache interceptor might fail
+            context.putLocal(TRANSACTIONAL_METHOD_KEY, true);
             // perform the work and eventually close the session and remove the key
             return work.get().eventually(() -> {
-                return HibernateReactiveRecorder.OPENED_SESSION_STATE.closeAllOpenedSessions(context);
+                return HibernateReactiveRecorder.OPENED_SESSIONS_STATE.closeAllOpenedSessions(context);
             });
         }
     }

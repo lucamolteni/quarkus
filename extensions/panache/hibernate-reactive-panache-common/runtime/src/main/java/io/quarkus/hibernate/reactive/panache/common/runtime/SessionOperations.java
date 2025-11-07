@@ -68,6 +68,9 @@ public final class SessionOperations {
     // This key is used to keep track of the Set<String> sessions created on demand
     private static final String SESSION_ON_DEMAND_OPENED_KEY = "hibernate.reactive.panache.sessionOnDemandOpened";
 
+    // TODO Luca remove this once this module depends on reactive-transactional
+    private static final String TRANSACTIONAL_METHOD_KEY = "hibernate.reactive.methodTransactional";
+
     /**
      * Marks the current vertx duplicated context as "lazy" which indicates that a reactive session should be opened lazily if
      * needed. The opened session is eventually closed and the marking key is removed when the provided {@link Uni} completes.
@@ -79,6 +82,13 @@ public final class SessionOperations {
      */
     static <T> Uni<T> withSessionOnDemand(Supplier<Uni<T>> work) {
         Context context = vertxContext();
+
+        if(context.getLocal(TRANSACTIONAL_METHOD_KEY) != null) {
+            return Uni.createFrom().failure(
+                    new UnsupportedOperationException(
+                            "Cannot call a method annotated with @WithSessionOnDemand from a method annotated with @Transactional"));
+        }
+
         if (context.getLocal(SESSION_ON_DEMAND_KEY) != null) {
             // context already marked - no need to set the key and close the session
             return work.get();

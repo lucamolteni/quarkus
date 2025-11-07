@@ -21,7 +21,7 @@ import java.util.Set;
 
 import static io.quarkus.hibernate.orm.runtime.PersistenceUnitUtil.DEFAULT_PERSISTENCE_UNIT_NAME;
 
-public class OpenedSessionState {
+public class OpenedSessionsState {
     // This key is used to keep track of the Set<String> sessions created on demand
     private static final String SESSIONS_ON_DEMAND_OPENED_KEY = "hibernate.reactive.panache.sessionOnDemandOpened";
 
@@ -53,6 +53,9 @@ public class OpenedSessionState {
 
     public Uni<Void> closeAllOpenedSessions(Context context) {
         Set<String> onDemandSessionCreated = openedSessionContextSet(context);
+        if(onDemandSessionCreated.isEmpty()) {
+            return Uni.createFrom().voidItem();
+        }
         List<Uni<Void>> closedSessionsUnis = new ArrayList<>();
         for (String s : onDemandSessionCreated) {
             closedSessionsUnis.add(closeAndRemoveSession(context, s));
