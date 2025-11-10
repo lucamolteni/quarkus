@@ -27,8 +27,8 @@ public class TransactionalInterceptorRequired extends TransactionalInterceptorBa
     @Override
     @AroundInvoke
     public Object intercept(InvocationContext ic) throws Exception {
-        // We shoudln't run on reactive methods
-        // TODO Luca this should be done for all kinds of interceptors
+        // Disable Interceptor on Reactive (uni) methods
+        // in The Reactive transaction module only REQUIRED is supported so far
         if (ic.getMethod().getReturnType().equals(Uni.class)) {
             log.info("method is annoted @Transactional but returns a Uni<?>, JTA transactions will be disabled");
             return ic.proceed();

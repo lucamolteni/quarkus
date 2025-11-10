@@ -12,6 +12,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Flow;
 import java.util.function.Function;
 
+import io.smallrye.mutiny.Uni;
 import jakarta.inject.Inject;
 import jakarta.interceptor.InvocationContext;
 import jakarta.transaction.Status;
@@ -55,6 +56,11 @@ public abstract class TransactionalInterceptorBase implements Serializable {
     public Object intercept(InvocationContext ic) throws Exception {
         final TransactionManager tm = transactionManager;
         final Transaction tx = tm.getTransaction();
+
+        if (ic.getMethod().getReturnType().equals(Uni.class)) {
+            log.info("method is annoted @Transactional but returns a Uni<?>, JTA transactions will be disabled");
+            return ic.proceed();
+        }
 
         boolean previousUserTransactionAvailability = setUserTransactionAvailable(userTransactionAvailable);
         try {
