@@ -67,18 +67,17 @@ public class HibernateReactiveTransactionsTest {
         // We need to wrap the test in a method because to enable Transactions the method should return a Uni
         Uni<Hero> failingUpdate = transactionalUpdateWithRollback(previousHeroId);
 
-        assertHeroIsRollbackInAnotherTransaction(asserter, failingUpdate, previousHeroId);
+        Uni<Hero> refreshedHero = assertHeroIsRollbackInAnotherTransaction(asserter, failingUpdate, previousHeroId);
+        asserter.assertThat(() -> refreshedHero, h -> {
+            assertThat(h.name).isEqualTo("initialName");
+        });
 
     }
 
     @Transactional
-    public void assertHeroIsRollbackInAnotherTransaction(UniAsserter asserter, Uni<Hero> failingUpdate, Long previousHeroId) {
-        Uni<Hero> refreshedHero = failingUpdate.onFailure().recoverWithNull()
+    public Uni<Hero> assertHeroIsRollbackInAnotherTransaction(UniAsserter asserter, Uni<Hero> failingUpdate, Long previousHeroId) {
+        return failingUpdate.onFailure().recoverWithNull()
                 .chain(id -> session.find(Hero.class, previousHeroId));
-
-        asserter.assertThat(() -> refreshedHero, h -> {
-            assertThat(h.name).isEqualTo("initialName");
-        });
     }
 
     @Transactional
