@@ -1,5 +1,6 @@
 package io.quarkus.hibernate.reactive.transactions.runtime;
 
+import java.util.Optional;
 import java.util.function.Supplier;
 
 import io.quarkus.hibernate.reactive.runtime.HibernateReactiveRecorder;
@@ -18,22 +19,20 @@ import static io.quarkus.hibernate.reactive.runtime.HibernateReactiveRecorder.WI
 
 
 /**
- * An interceptor which manages reactive transactions for methods
+ * The base intereceptor which manages reactive transactions for methods
  * annotated with {@link Transactional}.
+ * Each value has its own class as the Transaction Type is binding so requires exact match
  */
-@Transactional
-@Interceptor
-@Priority(Interceptor.Priority.PLATFORM_BEFORE + 300)
-public class TransactionalInterceptor {
+public abstract class TransactionalInterceptorBase {
 
     public static final String CURRENT_SESSION_INTERCEPTOR_KEY = "current_session_interceptor";
 
     private static final String ERROR_MSG = "Hibernate Reactive Panache requires a safe (isolated) Vert.x sub-context, but the current context hasn't been flagged as such.";
 
-    @AroundInvoke
-    public Object withTransaction(InvocationContext context) throws Exception {
+    public Object intercept(InvocationContext context) throws Exception {
         if (isUniReturnType(context)) {
-            return withTransactionalSessionOnDemand(() -> proceedUni(context));
+            Optional<Uni<Object>> typeValidation = validateTransactionalType(context);
+            return typeValidation.orElse(withTransactionalSessionOnDemand(() -> proceedUni(context)));
         }
         return context.proceed();
     }
@@ -109,5 +108,14 @@ public class TransactionalInterceptor {
         } else {
             throw new IllegalStateException("No current Vertx context found");
         }
+    }
+
+    protected Optional<Uni<Object>> validateTransactionalType(InvocationContext context) {
+        Transactional transactional = context.getMethod().getAnnotation(Transactional.class);
+        if (transactional != null && transactional.value() != Transactional.TxType.REQUIRED) {
+            return Optional.of(Uni.createFrom().failure(new UnsupportedOperationException(
+                    "@Transactional on Reactive methods supports only Transactional.TxType.REQUIRED")));
+        }
+        return Optional.empty();
     }
 }

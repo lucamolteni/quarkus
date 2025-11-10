@@ -12,7 +12,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import io.quarkus.builder.Version;
-import io.quarkus.hibernate.reactive.transactions.runtime.TransactionalInterceptor;
+import io.quarkus.hibernate.reactive.transactions.runtime.TransactionalInterceptorRequired;
 import io.quarkus.hibernate.reactive.transactions.test.Hero;
 import io.quarkus.maven.dependency.Dependency;
 import io.quarkus.test.QuarkusUnitTest;
@@ -26,7 +26,7 @@ public class MixReactiveBlockingTest {
 
     @RegisterExtension
     static final QuarkusUnitTest config = new QuarkusUnitTest()
-            .withApplicationRoot(jar -> jar.addClasses(Hero.class, TransactionalInterceptor.class))
+            .withApplicationRoot(jar -> jar.addClasses(Hero.class, TransactionalInterceptorRequired.class))
             .setForcedDependencies(List.of(
                     Dependency.of("io.quarkus", "quarkus-jdbc-postgresql-deployment", Version.getVersion()) // this triggers Agroal
             ));

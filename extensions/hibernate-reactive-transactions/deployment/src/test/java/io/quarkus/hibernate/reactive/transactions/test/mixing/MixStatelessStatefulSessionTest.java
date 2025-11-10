@@ -9,7 +9,7 @@ import org.hibernate.reactive.mutiny.Mutiny;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
-import io.quarkus.hibernate.reactive.transactions.runtime.TransactionalInterceptor;
+import io.quarkus.hibernate.reactive.transactions.runtime.TransactionalInterceptorRequired;
 import io.quarkus.hibernate.reactive.transactions.test.Hero;
 import io.quarkus.test.QuarkusUnitTest;
 import io.quarkus.test.vertx.RunOnVertxContext;
@@ -20,7 +20,7 @@ public class MixStatelessStatefulSessionTest {
 
     @RegisterExtension
     static final QuarkusUnitTest config = new QuarkusUnitTest()
-            .withApplicationRoot(jar -> jar.addClasses(Hero.class, TransactionalInterceptor.class))
+            .withApplicationRoot(jar -> jar.addClasses(Hero.class, TransactionalInterceptorRequired.class))
             .withConfigurationResource("application.properties");
 
     @Inject

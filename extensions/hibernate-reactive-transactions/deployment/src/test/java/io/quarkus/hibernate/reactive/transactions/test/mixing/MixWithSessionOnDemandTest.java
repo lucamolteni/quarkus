@@ -2,13 +2,13 @@ package io.quarkus.hibernate.reactive.transactions.test.mixing;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import io.quarkus.hibernate.reactive.transactions.runtime.TransactionalInterceptor;
 import jakarta.transaction.Transactional;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import io.quarkus.hibernate.reactive.panache.common.WithSessionOnDemand;
+import io.quarkus.hibernate.reactive.transactions.runtime.TransactionalInterceptorRequired;
 import io.quarkus.test.QuarkusUnitTest;
 import io.quarkus.test.vertx.RunOnVertxContext;
 import io.quarkus.test.vertx.UniAsserter;
@@ -18,7 +18,7 @@ public class MixWithSessionOnDemandTest {
 
     @RegisterExtension
     static final QuarkusUnitTest config = new QuarkusUnitTest()
-            .withApplicationRoot((jar) -> jar.addDefaultPackage().addClass(TransactionalInterceptor.class));
+            .withApplicationRoot((jar) -> jar.addDefaultPackage().addClass(TransactionalInterceptorRequired.class));
 
     @Test
     @RunOnVertxContext
