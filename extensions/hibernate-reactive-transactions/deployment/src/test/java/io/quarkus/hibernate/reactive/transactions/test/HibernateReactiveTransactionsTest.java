@@ -86,12 +86,13 @@ public class HibernateReactiveTransactionsTest {
 
         asserter.assertThat(() -> refreshAfterCommit, h -> {
             assertThat(h.name).isEqualTo("updatedNameCommitted");
+            System.out.println("Assertion made");
         });
 
         // Second update, make sure it's rollbacked
         Uni<Hero> failingUpdate = transactionalUpdateWithRollback(previousHeroId, "this name won't appear");
 
-        Uni<Hero> refreshedHero = refreshAfterRollback(asserter, failingUpdate, previousHeroId);
+        Uni<Hero> refreshedHero = refreshAfterRollback(failingUpdate, previousHeroId);
 
         asserter.assertThat(() -> refreshedHero, h -> {
             assertThat(h.name).isEqualTo("updatedNameCommitted");
@@ -106,10 +107,13 @@ public class HibernateReactiveTransactionsTest {
     }
 
     @Transactional
-    public Uni<Hero> refreshAfterRollback(UniAsserter asserter, Uni<Hero> failingUpdate,
+    public Uni<Hero> refreshAfterRollback(Uni<Hero> failingUpdate,
                                           Long previousHeroId) {
         return failingUpdate.onFailure().recoverWithNull()
-                .chain(id -> session.find(Hero.class, previousHeroId));
+                .chain(id -> {
+                    System.out.println("Refresh after rollback");
+                    return session.find(Hero.class, previousHeroId);
+                });
     }
 
     @Transactional
@@ -121,6 +125,8 @@ public class HibernateReactiveTransactionsTest {
     public Uni<Hero> transactionalUpdateWithRollback(Long previousHeroId, String newName) {
         return updateHero(session, previousHeroId, newName)
                 .onItem().invoke(h -> {
+                    // Questo metodo non viene mai chiamato! Non viene veramente fatto il rollback come mai?
+                    System.out.println("About to call the exception");
                     throw new RuntimeException("Failing update");
                 });
     }
@@ -128,6 +134,7 @@ public class HibernateReactiveTransactionsTest {
     public Uni<Hero> updateHero(Mutiny.Session session, Long id, String newName) {
         return session.find(Hero.class, id)
                 .map(h -> {
+                    System.out.println("Update hero with " + newName);
                     h.setName(newName);
                     return h;
                 }).call(() -> session.flush());

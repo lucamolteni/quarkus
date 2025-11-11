@@ -33,8 +33,7 @@ public class TransactionalContextPool implements Pool {
     public void getConnection(Handler<AsyncResult<SqlConnection>> handler) {
         if (!shouldOpenTransaction()) {
             delegate.getConnection(handler);
-        }
-        else {
+        } else {
             delegate.getConnection(result -> {
                 if (result.failed()) {
                     handler.handle(result);
@@ -53,12 +52,17 @@ public class TransactionalContextPool implements Pool {
     public Future<SqlConnection> getConnection() {
         if (!shouldOpenTransaction()) {
             return delegate.getConnection();
-        }
-        else {
-            return delegate.getConnection().compose(connection -> connection.begin()
-                    // Ignore the returned transaction; the caller expects a SqlConnection,
-                    // and the Transaction can be accessed through connection.transaction() anyway.
-                    .map(ignored -> connection));
+        } else {
+            return delegate.getConnection()
+                    .compose(connection -> connection.begin()
+                            .map(transaction -> {
+
+                                Context context = Vertx.currentContext();
+                                // TODO Luca use a better key here
+                                context.putLocal("myConnection", connection);
+
+                                return new TransactionalContextConnection(connection);
+                            }));
         }
     }
 
@@ -68,7 +72,7 @@ public class TransactionalContextPool implements Pool {
 
         // Vert.x context during DB Validation in startup is null
         // When using reactive in a @Transactional method, the context is surely duplicated
-        if(context != null && ((ContextInternal)context).isDuplicate()) {
+        if (context != null && ((ContextInternal) context).isDuplicate()) {
             Object createTransaction = context.getLocal(TRANSACTIONAL_METHOD_KEY);
             return createTransaction != null && (boolean) createTransaction;
         } else {

@@ -1,9 +1,15 @@
 package io.quarkus.hibernate.reactive.transactions.runtime;
 
+import java.lang.invoke.MethodHandles;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import java.util.function.Supplier;
 
 import io.quarkus.hibernate.reactive.runtime.HibernateReactiveRecorder;
+import io.vertx.core.Future;
+import io.vertx.sqlclient.SqlConnection;
+import io.vertx.sqlclient.Transaction;
 import jakarta.annotation.Priority;
 import jakarta.interceptor.AroundInvoke;
 import jakarta.interceptor.Interceptor;
@@ -14,6 +20,10 @@ import io.quarkus.vertx.core.runtime.context.VertxContextSafetyToggle;
 import io.smallrye.mutiny.Uni;
 import io.vertx.core.Context;
 import io.vertx.core.Vertx;
+import org.hibernate.reactive.logging.impl.Log;
+import org.hibernate.reactive.logging.impl.LoggerFactory;
+import org.hibernate.reactive.mutiny.Mutiny;
+import org.slf4j.Logger;
 
 import static io.quarkus.hibernate.reactive.runtime.HibernateReactiveRecorder.WITH_TRANSACTION_METHOD_KEY;
 
@@ -27,14 +37,54 @@ public abstract class TransactionalInterceptorBase {
 
     public static final String CURRENT_SESSION_INTERCEPTOR_KEY = "current_session_interceptor";
 
+    private static final Log LOG = LoggerFactory.make( Log.class, MethodHandles.lookup() );
+
     private static final String ERROR_MSG = "Hibernate Reactive Panache requires a safe (isolated) Vert.x sub-context, but the current context hasn't been flagged as such.";
 
     public Object intercept(InvocationContext context) throws Exception {
         if (isUniReturnType(context)) {
             Optional<Uni<Object>> typeValidation = validateTransactionalType(context);
-            return typeValidation.orElse(withTransactionalSessionOnDemand(() -> proceedUni(context)));
+            return typeValidation.orElse(withTransactionalSessionOnDemand(() -> {
+
+                // We need to commit or rollback the transaction here
+                // Handle checked exception vs runtime exception differently according to the spec
+                // check blicking interceptor for java.lang.Error as well
+                // copy the logic from io/quarkus/narayana/jta/runtime/interceptor/TransactionalInterceptorBase.java:363
+                return proceedUni(context);
+
+            }).onItem().call(r -> {
+                Context context2 = Vertx.currentContext();
+                SqlConnection connection = context2.getLocal("myConnection");
+
+                System.out.println("Invocation context: " + context.getMethod().getName());
+                return Uni.createFrom()
+                        .completionStage(commitTransaction(connection.transaction()))
+                        .eventually(() -> {
+                            Future<Void> close = connection.close();
+                            return Uni.createFrom().completionStage(close.toCompletionStage());
+                        });
+            }));
         }
         return context.proceed();
+    }
+
+    public CompletionStage<Void> commitTransaction(Transaction transaction) {
+        if(transaction == null) {
+            return CompletableFuture.completedStage(null);
+        }
+
+        return transaction.commit()
+                .onSuccess( v -> LOG.info( "Transaction committed: %s" + transaction ) )
+                .onFailure( v -> LOG.info( "Failed to commit transaction: %s" + transaction ) )
+                .toCompletionStage()
+                .whenComplete( this::clearTransaction );
+    }
+
+    private void clearTransaction(Void unused, Throwable throwable) {
+        // Clear the Vertx context
+        var context = Vertx.currentContext();
+        context.removeLocal("myConnection");
+        System.out.println("Removing the connection");
     }
 
     // TODO copied from Panache -- refactor and put in a common module?
