@@ -49,7 +49,7 @@ public class HibernateReactiveTransactionsTest {
         // Second update, make sure it's rollbacked
         Uni<Hero> failingUpdate = committedUpdate.flatMap(c -> {
             return sessionFactory.withTransaction(session -> {
-                return updateHero(session, previousHeroId, "updatedNameRollback")
+                return updateHero(session, previousHeroId, "this name won't appear")
                         .onItem().invoke(h -> {
                             throw new RuntimeException("Failing update");
                         });
@@ -80,7 +80,7 @@ public class HibernateReactiveTransactionsTest {
         Long previousHeroId = 50L;
 
         // First update, make sure it's committed
-        Uni<Hero> committedUpdate = updateWithCommit(previousHeroId);
+        Uni<Hero> committedUpdate = updateWithCommit(previousHeroId, "updatedNameCommitted");
 
         Uni<Hero> refreshAfterCommit = refreshHero(committedUpdate, previousHeroId);
 
@@ -89,7 +89,7 @@ public class HibernateReactiveTransactionsTest {
         });
 
         // Second update, make sure it's rollbacked
-        Uni<Hero> failingUpdate = transactionalUpdateWithRollback(previousHeroId);
+        Uni<Hero> failingUpdate = transactionalUpdateWithRollback(previousHeroId, "this name won't appear");
 
         Uni<Hero> refreshedHero = refreshAfterRollback(asserter, failingUpdate, previousHeroId);
 
@@ -113,13 +113,13 @@ public class HibernateReactiveTransactionsTest {
     }
 
     @Transactional
-    public Uni<Hero> updateWithCommit(Long previousHeroId) {
-        return updateHero(session, previousHeroId, "updatedName correct");
+    public Uni<Hero> updateWithCommit(Long previousHeroId, String newName) {
+        return updateHero(session, previousHeroId, newName);
     }
 
     @Transactional
-    public Uni<Hero> transactionalUpdateWithRollback(Long previousHeroId) {
-        return updateHero(session, previousHeroId, "updatedName")
+    public Uni<Hero> transactionalUpdateWithRollback(Long previousHeroId, String newName) {
+        return updateHero(session, previousHeroId, newName)
                 .onItem().invoke(h -> {
                     throw new RuntimeException("Failing update");
                 });
