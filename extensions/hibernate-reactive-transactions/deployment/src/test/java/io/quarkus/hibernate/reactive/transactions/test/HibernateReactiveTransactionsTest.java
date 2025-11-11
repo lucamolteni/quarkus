@@ -34,18 +34,33 @@ public class HibernateReactiveTransactionsTest {
         // initialTransactionData.sql
         Long previousHeroId = 60L;
 
-        Uni<Hero> failingUpdate = sessionFactory.withTransaction(session -> {
-            return updateHero(session, previousHeroId, "updatedName")
-                    .onItem().invoke(h -> {
-                        throw new RuntimeException("Failing update");
-                    });
+        // First update, make sure it's committed
+        Uni<Hero> committedUpdate = sessionFactory.withTransaction(
+                session -> updateHero(session, previousHeroId, "updatedNameCommitted"));
+
+        Uni<Hero> refreshedCommitted = sessionFactory.withTransaction(session ->
+            committedUpdate
+                .chain(id -> session.find(Hero.class, previousHeroId)));
+
+        asserter.assertThat(() -> refreshedCommitted, h -> {
+            assertThat(h.name).isEqualTo("updatedNameCommitted");
         });
 
-        Uni<Hero> refreshedHero = failingUpdate.onFailure().recoverWithNull()
+        // Second update, make sure it's rollbacked
+        Uni<Hero> failingUpdate = committedUpdate.flatMap(c -> {
+            return sessionFactory.withTransaction(session -> {
+                return updateHero(session, previousHeroId, "updatedNameRollback")
+                        .onItem().invoke(h -> {
+                            throw new RuntimeException("Failing update");
+                        });
+            });
+        });
+
+        Uni<Hero> refreshedHeroAfterRollback = failingUpdate.onFailure().recoverWithNull()
                 .chain(id -> sessionFactory.withTransaction(session -> session.find(Hero.class, previousHeroId)));
 
-        asserter.assertThat(() -> refreshedHero, h -> {
-            assertThat(h.name).isEqualTo("initialName");
+        asserter.assertThat(() -> refreshedHeroAfterRollback, h -> {
+            assertThat(h.name).isEqualTo("updatedNameCommitted");
         });
 
     }
@@ -64,20 +79,42 @@ public class HibernateReactiveTransactionsTest {
         // initialTransactionData.sql
         Long previousHeroId = 50L;
 
-        // We need to wrap the test in a method because to enable Transactions the method should return a Uni
+        // First update, make sure it's committed
+        Uni<Hero> committedUpdate = updateWithCommit(previousHeroId);
+
+        Uni<Hero> refreshAfterCommit = refreshHero(committedUpdate, previousHeroId);
+
+        asserter.assertThat(() -> refreshAfterCommit, h -> {
+            assertThat(h.name).isEqualTo("updatedNameCommitted");
+        });
+
+        // Second update, make sure it's rollbacked
         Uni<Hero> failingUpdate = transactionalUpdateWithRollback(previousHeroId);
 
-        Uni<Hero> refreshedHero = assertHeroIsRollbackInAnotherTransaction(asserter, failingUpdate, previousHeroId);
+        Uni<Hero> refreshedHero = refreshAfterRollback(asserter, failingUpdate, previousHeroId);
+
         asserter.assertThat(() -> refreshedHero, h -> {
-            assertThat(h.name).isEqualTo("initialName");
+            assertThat(h.name).isEqualTo("updatedNameCommitted");
         });
 
     }
 
     @Transactional
-    public Uni<Hero> assertHeroIsRollbackInAnotherTransaction(UniAsserter asserter, Uni<Hero> failingUpdate, Long previousHeroId) {
+    public Uni<Hero> refreshHero(Uni<Hero> updatedHero, Long previousHeroId) {
+        return updatedHero
+                .chain(id -> session.find(Hero.class, previousHeroId));
+    }
+
+    @Transactional
+    public Uni<Hero> refreshAfterRollback(UniAsserter asserter, Uni<Hero> failingUpdate,
+                                          Long previousHeroId) {
         return failingUpdate.onFailure().recoverWithNull()
                 .chain(id -> session.find(Hero.class, previousHeroId));
+    }
+
+    @Transactional
+    public Uni<Hero> updateWithCommit(Long previousHeroId) {
+        return updateHero(session, previousHeroId, "updatedName correct");
     }
 
     @Transactional
