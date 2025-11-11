@@ -7,12 +7,8 @@ import java.util.concurrent.CompletionStage;
 import java.util.function.Supplier;
 
 import io.quarkus.hibernate.reactive.runtime.HibernateReactiveRecorder;
-import io.vertx.core.Future;
-import io.vertx.sqlclient.SqlConnection;
+import io.quarkus.hibernate.reactive.runtime.customized.QuarkusReactiveTransaction;
 import io.vertx.sqlclient.Transaction;
-import jakarta.annotation.Priority;
-import jakarta.interceptor.AroundInvoke;
-import jakarta.interceptor.Interceptor;
 import jakarta.interceptor.InvocationContext;
 import jakarta.transaction.Transactional;
 
@@ -22,8 +18,6 @@ import io.vertx.core.Context;
 import io.vertx.core.Vertx;
 import org.hibernate.reactive.logging.impl.Log;
 import org.hibernate.reactive.logging.impl.LoggerFactory;
-import org.hibernate.reactive.mutiny.Mutiny;
-import org.slf4j.Logger;
 
 import static io.quarkus.hibernate.reactive.runtime.HibernateReactiveRecorder.WITH_TRANSACTION_METHOD_KEY;
 
@@ -31,7 +25,7 @@ import static io.quarkus.hibernate.reactive.runtime.HibernateReactiveRecorder.WI
 /**
  * The base intereceptor which manages reactive transactions for methods
  * annotated with {@link Transactional}.
- * Each value has its own class as the Transaction Type is binding so requires exact match
+ * Each value has its own class as the QuarkusReactiveTransaction Type is binding so requires exact match
  */
 public abstract class TransactionalInterceptorBase {
 
@@ -44,47 +38,27 @@ public abstract class TransactionalInterceptorBase {
     public Object intercept(InvocationContext context) throws Exception {
         if (isUniReturnType(context)) {
             Optional<Uni<Object>> typeValidation = validateTransactionalType(context);
-            return typeValidation.orElse(withTransactionalSessionOnDemand(() -> {
 
-                // We need to commit or rollback the transaction here
-                // Handle checked exception vs runtime exception differently according to the spec
-                // check blicking interceptor for java.lang.Error as well
-                // copy the logic from io/quarkus/narayana/jta/runtime/interceptor/TransactionalInterceptorBase.java:363
-                return proceedUni(context);
+            if(typeValidation.isPresent()) {
+                return typeValidation;
+            }
 
-            }).onItem().call(r -> {
-                Context context2 = Vertx.currentContext();
-                SqlConnection connection = context2.getLocal("myConnection");
+                return withTransactionalSessionOnDemand(() -> {
 
-                System.out.println("Invocation context: " + context.getMethod().getName());
-                return Uni.createFrom()
-                        .completionStage(commitTransaction(connection.transaction()))
-                        .eventually(() -> {
-                            Future<Void> close = connection.close();
-                            return Uni.createFrom().completionStage(close.toCompletionStage());
-                        });
-            }));
+                    // We need to commit or rollback the transaction here
+                    // Handle checked exception vs runtime exception differently according to the spec
+                    // check blicking interceptor for java.lang.Error as well
+                    // copy the logic from io/quarkus/narayana/jta/runtime/interceptor/TransactionalInterceptorBase.java:363
+                    return proceedUni(context);
+
+                }).onItem().call(s -> {
+                    QuarkusReactiveTransaction transaction = Vertx.currentContext().getLocal("myTransaction");
+                    return transaction.execute(t -> {
+                        return Uni.createFrom().item(t);
+                    });
+                });
         }
         return context.proceed();
-    }
-
-    public CompletionStage<Void> commitTransaction(Transaction transaction) {
-        if(transaction == null) {
-            return CompletableFuture.completedStage(null);
-        }
-
-        return transaction.commit()
-                .onSuccess( v -> LOG.info( "Transaction committed: %s" + transaction ) )
-                .onFailure( v -> LOG.info( "Failed to commit transaction: %s" + transaction ) )
-                .toCompletionStage()
-                .whenComplete( this::clearTransaction );
-    }
-
-    private void clearTransaction(Void unused, Throwable throwable) {
-        // Clear the Vertx context
-        var context = Vertx.currentContext();
-        context.removeLocal("myConnection");
-        System.out.println("Removing the connection");
     }
 
     // TODO copied from Panache -- refactor and put in a common module?

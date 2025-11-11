@@ -54,15 +54,15 @@ public class TransactionalContextPool implements Pool {
             return delegate.getConnection();
         } else {
             return delegate.getConnection()
-                    .compose(connection -> connection.begin()
-                            .map(transaction -> {
+                    .compose(connection -> {
+                        System.out.println("Creating a new transaction");
+                        QuarkusReactiveTransaction quarkusReactiveTransaction = new QuarkusReactiveTransaction(connection);
 
-                                Context context = Vertx.currentContext();
-                                // TODO Luca use a better key here
-                                context.putLocal("myConnection", connection);
+                        return quarkusReactiveTransaction.begin().map(t -> {
 
-                                return new TransactionalContextConnection(connection);
-                            }));
+                            return new TransactionalContextConnection(connection);
+                        });
+                    });
         }
     }
 
