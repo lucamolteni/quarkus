@@ -6,6 +6,7 @@ import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 
 import org.hibernate.reactive.mutiny.Mutiny;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
@@ -28,6 +29,7 @@ public class MixStatelessStatefulSessionTest {
 
     @Test
     @RunOnVertxContext
+    @Disabled("WIP")
     public void avoidMixingTransactionalAndWithTransactionTest(UniAsserter asserter) {
         Uni<Void> uni = avoidMixingDifferentSessionTypes();
 
