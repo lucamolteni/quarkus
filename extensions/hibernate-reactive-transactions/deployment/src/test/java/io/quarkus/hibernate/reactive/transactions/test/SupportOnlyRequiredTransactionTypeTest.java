@@ -85,7 +85,7 @@ public class SupportOnlyRequiredTransactionTypeTest {
     }
 
     @Transactional(Transactional.TxType.SUPPORTS)
-    public Uni<?> supports() {
+    public Uni<String> supports() {
         return Uni.createFrom().item("supports");
     }
 }

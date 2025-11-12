@@ -79,7 +79,6 @@ public class HibernateReactiveTransactionsTest {
                         .chain(() -> findHero(heroId)),
                 h -> {
                     assertThat(h.name).isEqualTo("updatedNameCommitted");
-                    System.out.println("First Assertion made");
                 });
 
         // Second update, make sure there's a rollback
@@ -89,13 +88,11 @@ public class HibernateReactiveTransactionsTest {
                         .chain(() -> findHero(heroId)),
                 h -> {
                     assertThat(h.name).isEqualTo("updatedNameCommitted");
-                    System.out.println("Second Assertion made");
                 });
     }
 
     @Transactional
     public Uni<Hero> findHero(Long previousHeroId) {
-        System.out.println("Reload hero");
         return session.find(Hero.class, previousHeroId);
     }
 

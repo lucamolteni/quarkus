@@ -34,7 +34,7 @@ public abstract class TransactionalInterceptorBase {
             Optional<Uni<Object>> typeValidation = validateTransactionalType(context);
 
             if (typeValidation.isPresent()) {
-                return typeValidation;
+                return typeValidation.get();
             }
 
             return withTransactionalSessionOnDemand(() -> {

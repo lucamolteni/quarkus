@@ -57,11 +57,6 @@ public abstract class TransactionalInterceptorBase implements Serializable {
         final TransactionManager tm = transactionManager;
         final Transaction tx = tm.getTransaction();
 
-        if (ic.getMethod().getReturnType().equals(Uni.class)) {
-            log.info("method is annoted @Transactional but returns a Uni<?>, JTA transactions will be disabled");
-            return ic.proceed();
-        }
-
         boolean previousUserTransactionAvailability = setUserTransactionAvailable(userTransactionAvailable);
         try {
             return doIntercept(tm, tx, ic);
@@ -438,5 +433,15 @@ public abstract class TransactionalInterceptorBase implements Serializable {
     @SuppressWarnings("unchecked")
     private static <E extends Throwable> void sneakyThrow(Throwable e) throws E {
         throw (E) e;
+    }
+
+    protected boolean disableInterceptorOnUniMethods(InvocationContext ic) throws Exception {
+        // Disable Interceptor on Reactive (uni) methods
+        // in The Reactive transaction module only REQUIRED is supported so far
+        if (ic.getMethod().getReturnType().equals(Uni.class)) {
+            log.debugf("method is annoted @Transactional but returns a Uni<?>, JTA transactions will be disabled");
+            return true;
+        }
+        return false;
     }
 }
