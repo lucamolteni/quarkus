@@ -95,7 +95,7 @@ public abstract class TransactionalInterceptorBase {
     // And will open a session and a transaction lazy when the first operation requrires a reactive session
     // Check HibernateReactiveRecorder.sessionSupplier to see where the session is injected
     // TODO Luca find a way to remove the duplication between this field and TransactionalInterceptor field
-    public static final String TRANSACTIONAL_METHOD_KEY = "hibernate.reactive.methodTransactional";
+    private static final String TRANSACTIONAL_METHOD_KEY = "hibernate.reactive.methodTransactional";
 
     // This key is copied from panache and it's the marker key the WithSessionOnDemand intereceptor uses
     private static final String SESSION_ON_DEMAND_KEY = "hibernate.reactive.panache.sessionOnDemand";
@@ -117,8 +117,6 @@ public abstract class TransactionalInterceptorBase {
         // TODO check that there's no other session opened by session delegators for another PU
 
         // TODO check that there's no statelessSession opened by statelessSession delegators
-
-        // TODO handle @Transactional#value -- first impl would be to fail for anything except REQUIRED
 
         // io/quarkus/hibernate/reactive/panache/common/runtime/SessionOperations.java:79
         if (context.getLocal(TRANSACTIONAL_METHOD_KEY) != null) {
