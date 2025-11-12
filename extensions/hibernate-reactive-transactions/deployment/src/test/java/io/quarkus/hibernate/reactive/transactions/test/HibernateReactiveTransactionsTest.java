@@ -30,6 +30,7 @@ public class HibernateReactiveTransactionsTest {
     /**
      * This test shows how to use hibernate reactive .withTransaction to set transactional boundaries
      * Below there's testReactiveAnnotationTransaction which is the same test but with @Transactional
+     *
      * @param asserter
      */
     @Test

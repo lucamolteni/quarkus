@@ -26,7 +26,8 @@ public class MixWithTransactionTest {
         asserter.assertFailedWith(
                 () -> methodAnnotatedWithTransactionalCallingWithTransaction(),
                 t -> assertThat(t)
-                        .hasMessageContaining("Cannot call a method annotated with @WithTransaction from a method annotated with @Transactional"));
+                        .hasMessageContaining(
+                                "Cannot call a method annotated with @WithTransaction from a method annotated with @Transactional"));
     }
 
     @Transactional
@@ -47,7 +48,8 @@ public class MixWithTransactionTest {
         asserter.assertFailedWith(
                 () -> methodAnnotatedWithTransactionCallingTransactional(),
                 t -> assertThat(t)
-                        .hasMessageContaining("Cannot call a method annotated with @Transactional from a method annotated with @WithTransaction"));
+                        .hasMessageContaining(
+                                "Cannot call a method annotated with @Transactional from a method annotated with @WithTransaction"));
     }
 
     @WithTransaction

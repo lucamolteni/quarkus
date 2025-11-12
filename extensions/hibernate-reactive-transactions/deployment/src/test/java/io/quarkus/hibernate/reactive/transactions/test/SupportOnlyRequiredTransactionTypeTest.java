@@ -2,17 +2,17 @@ package io.quarkus.hibernate.reactive.transactions.test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import io.quarkus.hibernate.reactive.transactions.runtime.TransactionalInterceptorNever;
-import io.quarkus.hibernate.reactive.transactions.runtime.TransactionalInterceptorNotSupported;
-import io.quarkus.hibernate.reactive.transactions.runtime.TransactionalInterceptorRequired;
-import io.quarkus.hibernate.reactive.transactions.runtime.TransactionalInterceptorRequiresNew;
-import io.quarkus.hibernate.reactive.transactions.runtime.TransactionalInterceptorSupports;
 import jakarta.transaction.Transactional;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import io.quarkus.hibernate.reactive.transactions.runtime.TransactionalInterceptorMandatory;
+import io.quarkus.hibernate.reactive.transactions.runtime.TransactionalInterceptorNever;
+import io.quarkus.hibernate.reactive.transactions.runtime.TransactionalInterceptorNotSupported;
+import io.quarkus.hibernate.reactive.transactions.runtime.TransactionalInterceptorRequired;
+import io.quarkus.hibernate.reactive.transactions.runtime.TransactionalInterceptorRequiresNew;
+import io.quarkus.hibernate.reactive.transactions.runtime.TransactionalInterceptorSupports;
 import io.quarkus.test.QuarkusUnitTest;
 import io.quarkus.test.vertx.RunOnVertxContext;
 import io.quarkus.test.vertx.UniAsserter;
@@ -30,8 +30,7 @@ public class SupportOnlyRequiredTransactionTypeTest {
                             TransactionalInterceptorNotSupported.class,
                             TransactionalInterceptorRequired.class,
                             TransactionalInterceptorRequiresNew.class,
-                            TransactionalInterceptorSupports.class
-                    ));
+                            TransactionalInterceptorSupports.class));
 
     private static final String ERROR_MESSAGE = "@Transactional on Reactive methods supports only Transactional.TxType.REQUIRED";
 
@@ -62,7 +61,6 @@ public class SupportOnlyRequiredTransactionTypeTest {
     public void testNotSupported(UniAsserter asserter) {
         asserter.assertFailedWith(() -> notSupported(), t -> assertThat(t).hasMessageContaining(ERROR_MESSAGE));
     }
-
 
     @Transactional(Transactional.TxType.NOT_SUPPORTED)
     public Uni<?> notSupported() {
