@@ -27,6 +27,11 @@ public class HibernateReactiveTransactionsTest {
     @Inject
     Mutiny.SessionFactory sessionFactory;
 
+    /**
+     * This test shows how to use hibernate reactive .withTransaction to set transactional boundaries
+     * Below there's testReactiveAnnotationTransaction which is the same test but with @Transactional
+     * @param asserter
+     */
     @Test
     @RunOnVertxContext
     public void testReactiveManualTransaction(UniAsserter asserter) {
@@ -40,7 +45,7 @@ public class HibernateReactiveTransactionsTest {
                         .chain(() -> sessionFactory.withTransaction(session -> session.find(Hero.class, heroId))),
                 h -> assertThat(h.name).isEqualTo("updatedNameCommitted"));
 
-        // Second update, make sure it's rollbacked
+        // Second update, make sure there's a rollback
         asserter.assertThat(
                 () -> sessionFactory.withTransaction(session -> {
                     return updateHero(session, heroId, "this name won't appear")
@@ -76,7 +81,7 @@ public class HibernateReactiveTransactionsTest {
                     System.out.println("First Assertion made");
                 });
 
-        // Second update, make sure it's rollbacked
+        // Second update, make sure there's a rollback
         asserter.assertThat(
                 () -> transactionalUpdateWithRollback(heroId, "this name won't appear")
                         .onFailure().recoverWithNull()
