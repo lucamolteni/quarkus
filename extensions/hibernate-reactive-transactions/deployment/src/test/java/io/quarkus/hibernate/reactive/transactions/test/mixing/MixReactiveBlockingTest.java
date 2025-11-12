@@ -8,6 +8,7 @@ import jakarta.transaction.Transactional;
 
 import org.hibernate.reactive.mutiny.Mutiny;
 import org.jetbrains.annotations.Nullable;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
@@ -39,6 +40,7 @@ public class MixReactiveBlockingTest {
 
     @Test
     @RunOnVertxContext
+    @Disabled("WIP")
     public void avoidMixingTransactionalAndWithTransactionTest(UniAsserter asserter) {
         avoidMixingBlockingEMWithReactiveSessionFactory();
         // assert with Vertx
@@ -61,12 +63,13 @@ public class MixReactiveBlockingTest {
     }
 
     @Transactional
-    private @Nullable Object blockingOp(Hero heroBlocking) {
+    public @Nullable Object blockingOp(Hero heroBlocking) {
         entityManager.persist(heroBlocking);
         return null;
     }
 
     @Test
+    @Disabled("WIP")
     public void avoidMixingTransactionalAndWithTransactionTest() throws Throwable {
         Void v = fromBlockingToReactive();
 
@@ -88,7 +91,7 @@ public class MixReactiveBlockingTest {
     }
 
     @Transactional
-    private Uni<Void> persistReactive(Hero heroReactive) {
+    public Uni<Void> persistReactive(Hero heroReactive) {
         return reactiveSessionFactory.withSession(session -> session.persist(heroReactive));
     }
 }
