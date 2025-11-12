@@ -113,6 +113,7 @@ public abstract class TransactionalInterceptorBase {
             context.putLocal(TRANSACTIONAL_METHOD_KEY, true);
             // perform the work and eventually close the session and remove the key
             return work.get().eventually(() -> {
+                context.removeLocal(TRANSACTIONAL_METHOD_KEY);
                 return HibernateReactiveRecorder.OPENED_SESSIONS_STATE.closeAllOpenedSessions(context);
             });
         }
