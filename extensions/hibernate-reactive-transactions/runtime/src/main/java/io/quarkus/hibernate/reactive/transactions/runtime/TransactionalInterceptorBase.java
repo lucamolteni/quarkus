@@ -1,16 +1,15 @@
 package io.quarkus.hibernate.reactive.transactions.runtime;
 
 import static io.quarkus.hibernate.reactive.runtime.HibernateReactiveRecorder.WITH_TRANSACTION_METHOD_KEY;
+import static io.quarkus.hibernate.reactive.runtime.customized.TransactionalContextPool.CURRENT_TRANSACTION_KEY;
 
-import java.lang.invoke.MethodHandles;
 import java.util.Optional;
 import java.util.function.Supplier;
 
 import jakarta.interceptor.InvocationContext;
 import jakarta.transaction.Transactional;
 
-import org.hibernate.reactive.logging.impl.Log;
-import org.hibernate.reactive.logging.impl.LoggerFactory;
+import org.jboss.logging.Logger;
 
 import io.quarkus.hibernate.reactive.runtime.HibernateReactiveRecorder;
 import io.quarkus.vertx.core.runtime.context.VertxContextSafetyToggle;
@@ -26,9 +25,7 @@ import io.vertx.sqlclient.Transaction;
  */
 public abstract class TransactionalInterceptorBase {
 
-    public static final String CURRENT_SESSION_INTERCEPTOR_KEY = "current_session_interceptor";
-
-    private static final Log LOG = LoggerFactory.make(Log.class, MethodHandles.lookup());
+    private static final Logger LOG = Logger.getLogger(TransactionalInterceptorBase.class);
 
     private static final String ERROR_MSG = "Hibernate Reactive Panache requires a safe (isolated) Vert.x sub-context, but the current context hasn't been flagged as such.";
 
@@ -41,7 +38,6 @@ public abstract class TransactionalInterceptorBase {
             }
 
             return withTransactionalSessionOnDemand(() -> {
-                // We need to commit or rollback the transaction here
                 // Handle checked exception vs runtime exception differently according to the spec
                 // check blicking interceptor for java.lang.Error as well
                 // copy the logic from io/quarkus/narayana/jta/runtime/interceptor/TransactionalInterceptorBase.java:363
@@ -54,15 +50,15 @@ public abstract class TransactionalInterceptorBase {
     }
 
     Transaction transaction() {
-        return Vertx.currentContext().getLocal("myTransaction");
+        return Vertx.currentContext().getLocal(CURRENT_TRANSACTION_KEY);
     }
 
     // Copied from org/hibernate/reactive/pool/impl/SqlClientConnection.java:305
     Uni<Void> commit() {
         Transaction transaction = transaction();
         return Uni.createFrom().completionStage(transaction.commit()
-                .onSuccess(v -> LOG.info("Transaction committed: " + transaction))
-                .onFailure(v -> LOG.info("Failed to commit transaction: " + transaction))
+                .onSuccess(v -> LOG.tracef("Transaction committed: %s", transaction))
+                .onFailure(v -> LOG.tracef("Failed to commit transaction: %s", transaction))
                 .toCompletionStage());
     }
 
@@ -70,8 +66,8 @@ public abstract class TransactionalInterceptorBase {
     Uni<Void> rollback() {
         Transaction transaction = transaction();
         return Uni.createFrom().completionStage(transaction.rollback()
-                .onFailure(v -> LOG.info("Failed to rollback transaction: " + transaction))
-                .onSuccess(v -> LOG.info("Transaction rolled back: " + transaction))
+                .onFailure(v -> LOG.tracef("Failed to rollback transaction: %s", transaction))
+                .onSuccess(v -> LOG.tracef("Transaction rolled back: %s", transaction))
                 .toCompletionStage());
     }
 

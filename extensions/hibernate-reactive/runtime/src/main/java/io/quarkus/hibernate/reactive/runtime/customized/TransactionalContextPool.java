@@ -15,7 +15,6 @@ import io.vertx.sqlclient.Query;
 import io.vertx.sqlclient.Row;
 import io.vertx.sqlclient.RowSet;
 import io.vertx.sqlclient.SqlConnection;
-import io.vertx.sqlclient.Transaction;
 
 import static io.quarkus.hibernate.reactive.runtime.HibernateReactiveRecorder.TRANSACTIONAL_METHOD_KEY;
 
@@ -23,6 +22,9 @@ import static io.quarkus.hibernate.reactive.runtime.HibernateReactiveRecorder.TR
  * A pool that handles transaction based on Vert.x context set by the @Transactional interceptor.
  */
 public class TransactionalContextPool implements Pool {
+
+    // Used in this class and in TransactionalInterceptor to get the lazily created Transaction
+    public static final String CURRENT_TRANSACTION_KEY = "hibernate.reactive.currentTransaction";
 
     private final Pool delegate;
 
@@ -57,8 +59,7 @@ public class TransactionalContextPool implements Pool {
             return delegate.getConnection()
                     .compose(connection -> {
                         return connection.begin().map(t -> {
-                            System.out.println("Starting  a new transaction");
-                            Vertx.currentContext().putLocal("myTransaction", connection.transaction());
+                            Vertx.currentContext().putLocal(CURRENT_TRANSACTION_KEY, connection.transaction());
                             return new TransactionalContextConnection(connection);
                         });
                     });
