@@ -82,7 +82,7 @@ public class HibernateReactiveTransactionsTest {
         // First update, make sure it's committed
         Uni<Hero> committedUpdate = updateWithCommit(previousHeroId, "updatedNameCommitted");
 
-        Uni<Hero> refreshAfterCommit = refreshHero(committedUpdate, previousHeroId);
+        Uni<Hero> refreshAfterCommit = committedUpdate.chain( h -> refreshHero(previousHeroId));
 
         asserter.assertThat(() -> refreshAfterCommit, h -> {
             assertThat(h.name).isEqualTo("updatedNameCommitted");
@@ -94,7 +94,7 @@ public class HibernateReactiveTransactionsTest {
             return transactionalUpdateWithRollback(previousHeroId, "this name won't appear");
         }).onFailure().recoverWithNull();
 
-        Uni<Hero> refreshedHero = refreshHero(failingUpdate, previousHeroId);
+        Uni<Hero> refreshedHero = failingUpdate.chain(h -> refreshHero2(previousHeroId));
 
         asserter.assertThat(() -> refreshedHero, h -> {
             assertThat(h.name).isEqualTo("updatedNameCommitted");
@@ -105,12 +105,15 @@ public class HibernateReactiveTransactionsTest {
     }
 
     @Transactional
-    public Uni<Hero> refreshHero(Uni<Hero> updatedHero, Long previousHeroId) {
-        return updatedHero
-                .chain(id -> {
-                    System.out.println("Reload hero");
-                    return session.find(Hero.class, previousHeroId);
-                });
+    public Uni<Hero> refreshHero(Long previousHeroId) {
+        System.out.println("Reload hero");
+        return session.find(Hero.class, previousHeroId);
+    }
+
+    @Transactional
+    public Uni<Hero> refreshHero2(Long previousHeroId) {
+        System.out.println("Reload hero");
+        return session.find(Hero.class, previousHeroId);
     }
 
     @Transactional
