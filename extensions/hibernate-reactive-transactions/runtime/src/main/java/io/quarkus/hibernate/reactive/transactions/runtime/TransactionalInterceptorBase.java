@@ -71,7 +71,6 @@ public abstract class TransactionalInterceptorBase {
                 .toCompletionStage());
     }
 
-
     // TODO copied from Panache -- refactor and put in a common module?
     @SuppressWarnings("unchecked")
     protected <T> Uni<T> proceedUni(InvocationContext context) {

@@ -6,11 +6,10 @@ import jakarta.interceptor.Interceptor;
 import jakarta.interceptor.InvocationContext;
 import jakarta.transaction.Transactional;
 
-
 @Transactional(Transactional.TxType.NOT_SUPPORTED)
 @Interceptor
 @Priority(Interceptor.Priority.PLATFORM_BEFORE + 300)
-public class TransactionalInterceptorNotSupported extends TransactionalInterceptorBase{
+public class TransactionalInterceptorNotSupported extends TransactionalInterceptorBase {
 
     @Override
     @AroundInvoke
