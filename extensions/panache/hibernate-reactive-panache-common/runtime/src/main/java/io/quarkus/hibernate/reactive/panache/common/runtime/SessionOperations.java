@@ -83,7 +83,7 @@ public final class SessionOperations {
     static <T> Uni<T> withSessionOnDemand(Supplier<Uni<T>> work) {
         Context context = vertxContext();
 
-        if(context.getLocal(TRANSACTIONAL_METHOD_KEY) != null) {
+        if (context.getLocal(TRANSACTIONAL_METHOD_KEY) != null) {
             return Uni.createFrom().failure(
                     new UnsupportedOperationException(
                             "Cannot call a method annotated with @WithSessionOnDemand from a method annotated with @Transactional"));

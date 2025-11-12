@@ -1,7 +1,5 @@
 package io.quarkus.hibernate.reactive.panache.common.runtime;
 
-import io.smallrye.mutiny.Uni;
-import io.vertx.core.Context;
 import jakarta.annotation.Priority;
 import jakarta.interceptor.AroundInvoke;
 import jakarta.interceptor.Interceptor;

@@ -125,12 +125,11 @@ public class HibernateReactiveRecorder {
     // TODO Luca find a way to remove duplication
     public static final String WITH_TRANSACTION_METHOD_KEY = "hibernate.reactive.withTransaction";
 
-
     public static Mutiny.Session getSession(String persistenceUnitName) {
         Context context = Vertx.currentContext();
 
-        Optional<OpenedSessionsState.SessionWithKey> openedSession =
-                OPENED_SESSIONS_STATE.getOpenedSession(context, persistenceUnitName);
+        Optional<OpenedSessionsState.SessionWithKey> openedSession = OPENED_SESSIONS_STATE.getOpenedSession(context,
+                persistenceUnitName);
         // reuse the existing reactive session
         if (openedSession.isPresent()) {
             return openedSession.get().session();

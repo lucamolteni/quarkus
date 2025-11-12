@@ -1,6 +1,5 @@
 package io.quarkus.hibernate.reactive.runtime.customized;
 
-import io.smallrye.mutiny.Uni;
 import io.vertx.codegen.annotations.Fluent;
 import io.vertx.core.AsyncResult;
 import io.vertx.core.Future;
@@ -106,8 +105,8 @@ public class TransactionalContextConnection implements SqlConnection {
 
         // Do not actually close this connection as the TransactionalInterceptor should commit the tx first
 
-//        return connection.close();
-//
+        //        return connection.close();
+        //
         return Future.succeededFuture();
     }
 }

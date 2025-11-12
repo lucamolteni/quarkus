@@ -1,5 +1,7 @@
 package io.quarkus.hibernate.reactive.runtime.customized;
 
+import static io.quarkus.hibernate.reactive.runtime.HibernateReactiveRecorder.TRANSACTIONAL_METHOD_KEY;
+
 import java.util.function.Function;
 
 import io.vertx.core.AsyncResult;
@@ -15,8 +17,6 @@ import io.vertx.sqlclient.Query;
 import io.vertx.sqlclient.Row;
 import io.vertx.sqlclient.RowSet;
 import io.vertx.sqlclient.SqlConnection;
-
-import static io.quarkus.hibernate.reactive.runtime.HibernateReactiveRecorder.TRANSACTIONAL_METHOD_KEY;
 
 /**
  * A pool that handles transaction based on Vert.x context set by the @Transactional interceptor.

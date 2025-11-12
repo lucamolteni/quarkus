@@ -12,7 +12,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Flow;
 import java.util.function.Function;
 
-import io.smallrye.mutiny.Uni;
 import jakarta.inject.Inject;
 import jakarta.interceptor.InvocationContext;
 import jakarta.transaction.Status;
@@ -33,6 +32,7 @@ import io.quarkus.narayana.jta.runtime.NotifyingTransactionManager;
 import io.quarkus.narayana.jta.runtime.TransactionConfiguration;
 import io.quarkus.transaction.annotations.Rollback;
 import io.smallrye.mutiny.Multi;
+import io.smallrye.mutiny.Uni;
 import io.smallrye.reactive.converters.ReactiveTypeConverter;
 import io.smallrye.reactive.converters.Registry;
 import mutiny.zero.flow.adapters.AdaptersToFlow;

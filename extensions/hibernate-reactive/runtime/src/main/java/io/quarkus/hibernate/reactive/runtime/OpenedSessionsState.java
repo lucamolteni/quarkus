@@ -49,7 +49,7 @@ public class OpenedSessionsState {
 
     public Uni<Void> closeAllOpenedSessions(Context context) {
         Set<String> onDemandSessionCreated = openedSessionContextSet(context);
-        if(onDemandSessionCreated.isEmpty()) {
+        if (onDemandSessionCreated.isEmpty()) {
             return Uni.createFrom().voidItem();
         }
         List<Uni<Void>> closedSessionsUnis = new ArrayList<>();
