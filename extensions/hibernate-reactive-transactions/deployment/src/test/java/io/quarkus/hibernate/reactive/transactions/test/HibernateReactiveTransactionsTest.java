@@ -19,7 +19,7 @@ public class HibernateReactiveTransactionsTest {
 
     @RegisterExtension
     static final QuarkusUnitTest config = new QuarkusUnitTest()
-            .withApplicationRoot((jar) -> jar
+            .withApplicationRoot(jar -> jar
                     .addClasses(Hero.class, TransactionalInterceptorRequired.class)
                     .addAsResource("initialTransactionData.sql", "import.sql"))
             .withConfigurationResource("application.properties");
@@ -35,26 +35,20 @@ public class HibernateReactiveTransactionsTest {
 
         // First update, make sure it's committed
         asserter.assertThat(
-                // 1st endpoint call
                 () -> sessionFactory.withTransaction(session -> updateHero(session, heroId, "updatedNameCommitted"))
                         // 2nd endpoint call
                         .chain(() -> sessionFactory.withTransaction(session -> session.find(Hero.class, heroId))),
-                // Assertion
                 h -> assertThat(h.name).isEqualTo("updatedNameCommitted"));
 
         // Second update, make sure it's rollbacked
-
         asserter.assertThat(
-                // 1st endpoint call
                 () -> sessionFactory.withTransaction(session -> {
                     return updateHero(session, heroId, "this name won't appear")
                             .onItem().invoke(h -> {
                                 throw new RuntimeException("Failing update");
                             });
                 }).onFailure().recoverWithNull()
-                        // 2nd endpoint call
                         .chain(() -> sessionFactory.withTransaction(session -> session.find(Hero.class, heroId))),
-                // Assertion
                 h -> {
                     assertThat(h.name).isEqualTo("updatedNameCommitted");
                 });
@@ -75,25 +69,18 @@ public class HibernateReactiveTransactionsTest {
 
         // First update, make sure it's committed
         asserter.assertThat(
-                // 1st endpoint call
                 () -> updateWithCommit(heroId, "updatedNameCommitted")
-                        // 2nd endpoint call
                         .chain(() -> findHero(heroId)),
-                // Assertion
                 h -> {
                     assertThat(h.name).isEqualTo("updatedNameCommitted");
                     System.out.println("First Assertion made");
                 });
 
         // Second update, make sure it's rollbacked
-
         asserter.assertThat(
-                // 1st endpoint call
                 () -> transactionalUpdateWithRollback(heroId, "this name won't appear")
                         .onFailure().recoverWithNull()
-                        // 2nd endpoint call
-                        .chain(() -> findHero2(heroId)),
-                // Assertion
+                        .chain(() -> findHero(heroId)),
                 h -> {
                     assertThat(h.name).isEqualTo("updatedNameCommitted");
                     System.out.println("Second Assertion made");
@@ -107,12 +94,6 @@ public class HibernateReactiveTransactionsTest {
     }
 
     @Transactional
-    public Uni<Hero> findHero2(Long previousHeroId) {
-        System.out.println("Reload hero");
-        return session.find(Hero.class, previousHeroId);
-    }
-
-    @Transactional
     public Uni<Hero> updateWithCommit(Long previousHeroId, String newName) {
         return updateHero(session, previousHeroId, newName);
     }
@@ -121,8 +102,6 @@ public class HibernateReactiveTransactionsTest {
     public Uni<Hero> transactionalUpdateWithRollback(Long previousHeroId, String newName) {
         return updateHero(session, previousHeroId, newName)
                 .onItem().invoke(h -> {
-                    // Questo metodo non viene mai chiamato! Non viene veramente fatto il rollback come mai?
-                    System.out.println("About to call the exception");
                     throw new RuntimeException("Failing update");
                 });
     }
@@ -130,7 +109,6 @@ public class HibernateReactiveTransactionsTest {
     public Uni<Hero> updateHero(Mutiny.Session session, Long id, String newName) {
         return session.find(Hero.class, id)
                 .map(h -> {
-                    System.out.println("Update hero with " + newName);
                     h.setName(newName);
                     return h;
                 }).call(() -> session.flush());
