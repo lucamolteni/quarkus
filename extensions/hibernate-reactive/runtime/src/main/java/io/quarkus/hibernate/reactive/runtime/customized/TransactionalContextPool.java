@@ -15,6 +15,7 @@ import io.vertx.sqlclient.Query;
 import io.vertx.sqlclient.Row;
 import io.vertx.sqlclient.RowSet;
 import io.vertx.sqlclient.SqlConnection;
+import io.vertx.sqlclient.Transaction;
 
 import static io.quarkus.hibernate.reactive.runtime.HibernateReactiveRecorder.TRANSACTIONAL_METHOD_KEY;
 
@@ -55,11 +56,9 @@ public class TransactionalContextPool implements Pool {
         } else {
             return delegate.getConnection()
                     .compose(connection -> {
-                        System.out.println("Creating a new transaction");
-                        QuarkusReactiveTransaction quarkusReactiveTransaction = new QuarkusReactiveTransaction(connection);
-
-                        return quarkusReactiveTransaction.begin().map(t -> {
-
+                        return connection.begin().map(t -> {
+                            System.out.println("Starting  a new transaction");
+                            Vertx.currentContext().putLocal("myTransaction", connection.transaction());
                             return new TransactionalContextConnection(connection);
                         });
                     });

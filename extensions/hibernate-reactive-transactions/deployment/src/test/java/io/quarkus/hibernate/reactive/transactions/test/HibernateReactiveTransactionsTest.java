@@ -30,39 +30,34 @@ public class HibernateReactiveTransactionsTest {
     @Test
     @RunOnVertxContext
     public void testReactiveManualTransaction(UniAsserter asserter) {
-
         // initialTransactionData.sql
-        Long previousHeroId = 60L;
+        Long heroId = 60L;
 
         // First update, make sure it's committed
-        Uni<Hero> committedUpdate = sessionFactory.withTransaction(
-                session -> updateHero(session, previousHeroId, "updatedNameCommitted"));
-
-        Uni<Hero> refreshedCommitted = sessionFactory.withTransaction(session ->
-            committedUpdate
-                .chain(id -> session.find(Hero.class, previousHeroId)));
-
-        asserter.assertThat(() -> refreshedCommitted, h -> {
-            assertThat(h.name).isEqualTo("updatedNameCommitted");
-        });
+        asserter.assertThat(
+                // 1st endpoint call
+                () -> sessionFactory.withTransaction(session -> updateHero(session, heroId, "updatedNameCommitted"))
+                        // 2nd endpoint call
+                        .chain(() -> sessionFactory.withTransaction(session -> session.find(Hero.class, heroId))),
+                // Assertion
+                h -> assertThat(h.name).isEqualTo("updatedNameCommitted"));
 
         // Second update, make sure it's rollbacked
-        Uni<Hero> failingUpdate = committedUpdate.flatMap(c -> {
-            return sessionFactory.withTransaction(session -> {
-                return updateHero(session, previousHeroId, "this name won't appear")
-                        .onItem().invoke(h -> {
-                            throw new RuntimeException("Failing update");
-                        });
-            });
-        });
 
-        Uni<Hero> refreshedHeroAfterRollback = failingUpdate.onFailure().recoverWithNull()
-                .chain(id -> sessionFactory.withTransaction(session -> session.find(Hero.class, previousHeroId)));
-
-        asserter.assertThat(() -> refreshedHeroAfterRollback, h -> {
-            assertThat(h.name).isEqualTo("updatedNameCommitted");
-        });
-
+        asserter.assertThat(
+                // 1st endpoint call
+                () -> sessionFactory.withTransaction(session -> {
+                    return updateHero(session, heroId, "this name won't appear")
+                            .onItem().invoke(h -> {
+                                throw new RuntimeException("Failing update");
+                            });
+                }).onFailure().recoverWithNull()
+                        // 2nd endpoint call
+                        .chain(() -> sessionFactory.withTransaction(session -> session.find(Hero.class, heroId))),
+                // Assertion
+                h -> {
+                    assertThat(h.name).isEqualTo("updatedNameCommitted");
+                });
     }
 
     @Inject
@@ -75,43 +70,44 @@ public class HibernateReactiveTransactionsTest {
     @Test
     @RunOnVertxContext
     public void testReactiveAnnotationTransaction(UniAsserter asserter) {
-
         // initialTransactionData.sql
-        Long previousHeroId = 50L;
+        Long heroId = 50L;
 
         // First update, make sure it's committed
-        Uni<Hero> committedUpdate = updateWithCommit(previousHeroId, "updatedNameCommitted");
-
-        Uni<Hero> refreshAfterCommit = committedUpdate.chain( h -> refreshHero(previousHeroId));
-
-        asserter.assertThat(() -> refreshAfterCommit, h -> {
-            assertThat(h.name).isEqualTo("updatedNameCommitted");
-            System.out.println("First Assertion made");
-        });
+        asserter.assertThat(
+                // 1st endpoint call
+                () -> updateWithCommit(heroId, "updatedNameCommitted")
+                        // 2nd endpoint call
+                        .chain(() -> findHero(heroId)),
+                // Assertion
+                h -> {
+                    assertThat(h.name).isEqualTo("updatedNameCommitted");
+                    System.out.println("First Assertion made");
+                });
 
         // Second update, make sure it's rollbacked
-        Uni<Hero> failingUpdate = refreshAfterCommit.flatMap(h -> {
-            return transactionalUpdateWithRollback(previousHeroId, "this name won't appear");
-        }).onFailure().recoverWithNull();
 
-        Uni<Hero> refreshedHero = failingUpdate.chain(h -> refreshHero2(previousHeroId));
-
-        asserter.assertThat(() -> refreshedHero, h -> {
-            assertThat(h.name).isEqualTo("updatedNameCommitted");
-            System.out.println("Second Assertion made");
-
-        });
-
+        asserter.assertThat(
+                // 1st endpoint call
+                () -> transactionalUpdateWithRollback(heroId, "this name won't appear")
+                        .onFailure().recoverWithNull()
+                        // 2nd endpoint call
+                        .chain(() -> findHero2(heroId)),
+                // Assertion
+                h -> {
+                    assertThat(h.name).isEqualTo("updatedNameCommitted");
+                    System.out.println("Second Assertion made");
+                });
     }
 
     @Transactional
-    public Uni<Hero> refreshHero(Long previousHeroId) {
+    public Uni<Hero> findHero(Long previousHeroId) {
         System.out.println("Reload hero");
         return session.find(Hero.class, previousHeroId);
     }
 
     @Transactional
-    public Uni<Hero> refreshHero2(Long previousHeroId) {
+    public Uni<Hero> findHero2(Long previousHeroId) {
         System.out.println("Reload hero");
         return session.find(Hero.class, previousHeroId);
     }

@@ -1,26 +1,23 @@
 package io.quarkus.hibernate.reactive.transactions.runtime;
 
+import static io.quarkus.hibernate.reactive.runtime.HibernateReactiveRecorder.WITH_TRANSACTION_METHOD_KEY;
+
 import java.lang.invoke.MethodHandles;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
 import java.util.function.Supplier;
 
-import io.quarkus.hibernate.reactive.runtime.HibernateReactiveRecorder;
-import io.quarkus.hibernate.reactive.runtime.customized.QuarkusReactiveTransaction;
-import io.vertx.sqlclient.Transaction;
 import jakarta.interceptor.InvocationContext;
 import jakarta.transaction.Transactional;
 
+import org.hibernate.reactive.logging.impl.Log;
+import org.hibernate.reactive.logging.impl.LoggerFactory;
+
+import io.quarkus.hibernate.reactive.runtime.HibernateReactiveRecorder;
 import io.quarkus.vertx.core.runtime.context.VertxContextSafetyToggle;
 import io.smallrye.mutiny.Uni;
 import io.vertx.core.Context;
 import io.vertx.core.Vertx;
-import org.hibernate.reactive.logging.impl.Log;
-import org.hibernate.reactive.logging.impl.LoggerFactory;
-
-import static io.quarkus.hibernate.reactive.runtime.HibernateReactiveRecorder.WITH_TRANSACTION_METHOD_KEY;
-
+import io.vertx.sqlclient.Transaction;
 
 /**
  * The base intereceptor which manages reactive transactions for methods
@@ -31,7 +28,7 @@ public abstract class TransactionalInterceptorBase {
 
     public static final String CURRENT_SESSION_INTERCEPTOR_KEY = "current_session_interceptor";
 
-    private static final Log LOG = LoggerFactory.make( Log.class, MethodHandles.lookup() );
+    private static final Log LOG = LoggerFactory.make(Log.class, MethodHandles.lookup());
 
     private static final String ERROR_MSG = "Hibernate Reactive Panache requires a safe (isolated) Vert.x sub-context, but the current context hasn't been flagged as such.";
 
@@ -39,27 +36,45 @@ public abstract class TransactionalInterceptorBase {
         if (isUniReturnType(context)) {
             Optional<Uni<Object>> typeValidation = validateTransactionalType(context);
 
-            if(typeValidation.isPresent()) {
+            if (typeValidation.isPresent()) {
                 return typeValidation;
             }
 
-                return withTransactionalSessionOnDemand(() -> {
-
-                    // We need to commit or rollback the transaction here
-                    // Handle checked exception vs runtime exception differently according to the spec
-                    // check blicking interceptor for java.lang.Error as well
-                    // copy the logic from io/quarkus/narayana/jta/runtime/interceptor/TransactionalInterceptorBase.java:363
-                    return proceedUni(context);
-
-                }).onItem().call(s -> {
-                    QuarkusReactiveTransaction transaction = Vertx.currentContext().getLocal("myTransaction");
-                    return transaction.execute(t -> {
-                        return Uni.createFrom().item(t);
-                    });
-                });
+            return withTransactionalSessionOnDemand(() -> {
+                // We need to commit or rollback the transaction here
+                // Handle checked exception vs runtime exception differently according to the spec
+                // check blicking interceptor for java.lang.Error as well
+                // copy the logic from io/quarkus/narayana/jta/runtime/interceptor/TransactionalInterceptorBase.java:363
+                return proceedUni(context);
+            }).onFailure().call(this::rollback)
+                    .onCancellation().call(this::rollback)
+                    .call(this::commit);
         }
         return context.proceed();
     }
+
+    Transaction transaction() {
+        return Vertx.currentContext().getLocal("myTransaction");
+    }
+
+    // Copied from org/hibernate/reactive/pool/impl/SqlClientConnection.java:305
+    Uni<Void> commit() {
+        Transaction transaction = transaction();
+        return Uni.createFrom().completionStage(transaction.commit()
+                .onSuccess(v -> LOG.info("Transaction committed: " + transaction))
+                .onFailure(v -> LOG.info("Failed to commit transaction: " + transaction))
+                .toCompletionStage());
+    }
+
+    // Copied from org/hibernate/reactive/pool/impl/SqlClientConnection.java:314
+    Uni<Void> rollback() {
+        Transaction transaction = transaction();
+        return Uni.createFrom().completionStage(transaction.rollback()
+                .onFailure(v -> LOG.info("Failed to rollback transaction: " + transaction))
+                .onSuccess(v -> LOG.info("Transaction rolled back: " + transaction))
+                .toCompletionStage());
+    }
+
 
     // TODO copied from Panache -- refactor and put in a common module?
     @SuppressWarnings("unchecked")
@@ -87,13 +102,13 @@ public abstract class TransactionalInterceptorBase {
 
     static <T> Uni<T> withTransactionalSessionOnDemand(Supplier<Uni<T>> work) {
         Context context = vertxContext();
-        if(context.getLocal(SESSION_ON_DEMAND_KEY) != null) {
+        if (context.getLocal(SESSION_ON_DEMAND_KEY) != null) {
             return Uni.createFrom().failure(
                     new UnsupportedOperationException(
                             "Cannot call a method annotated with @Transactional from a method annotated with @WithSessionOnDemand"));
         }
 
-        if(context.getLocal(WITH_TRANSACTION_METHOD_KEY) != null) {
+        if (context.getLocal(WITH_TRANSACTION_METHOD_KEY) != null) {
             return Uni.createFrom().failure(
                     new UnsupportedOperationException(
                             "Cannot call a method annotated with @Transactional from a method annotated with @WithTransaction"));
