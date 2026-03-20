@@ -1,8 +1,68 @@
 # Keyed/Partitioned BuildStep API — Before & After
 
+## TL;DR
+
+Today:
+
+```java
+@BuildStep
+void process(
+    List<PersistenceUnitDescriptorBuildItem> allDescriptors,
+    List<JdbcDataSourceBuildItem> allJdbcDataSources,
+    List<ReactiveDataSourceBuildItem> allReactiveDataSources) {
+
+    for (var descriptor : allDescriptors) {
+        String name = descriptor.getPersistenceUnitName();
+        var jdbcDs = allJdbcDataSources.stream()
+            .filter(ds -> ds.getName().equals(name)).findFirst();
+        var reactiveDs = allReactiveDataSources.stream()
+            .filter(ds -> ds.getName().equals(name)).findFirst();
+        // ...
+    }
+}
+```
+
+After:
+
+```java
+@BuildStep
+@ForEachKey(PersistenceUnitDescriptorBuildItem.class)
+void process(
+    String key,                                    // "inventory" or "audit"
+    PersistenceUnitDescriptorBuildItem descriptor,  // the one for this key
+    JdbcDataSourceBuildItem jdbcDataSource,          // the one for this key (or null)
+    ReactiveDataSourceBuildItem reactiveDataSource)  // the one for this key (or null)
+{
+    // called once per key, items pre-filtered
+}
+```
+
+---
+
 ## Problem
 
-Extensions like Hibernate ORM and Agroal handle multiple named instances (persistence units, datasources). Each instance's pipeline is independent — PU "orders" can't affect PU "inventory" — but the framework forces everything into flat `List<MultiBuildItem>`. This creates:
+In Quarkus, users can define multiple named instances of the same concept in `application.properties`. For example, multiple Hibernate ORM persistence units and their datasources:
+
+```properties
+# Default persistence unit + datasource
+quarkus.datasource.db-kind=postgresql
+quarkus.hibernate-orm.packages=org.acme.model.defaultpu
+quarkus.hibernate-orm.schema-management.strategy=drop-and-create
+
+# Named "inventory" persistence unit + datasource
+quarkus.datasource."inventory".db-kind=mysql
+quarkus.hibernate-orm."inventory".datasource=inventory
+quarkus.hibernate-orm."inventory".packages=org.acme.model.inventory
+quarkus.hibernate-orm."inventory".schema-management.strategy=update
+
+# Named "audit" persistence unit + datasource
+quarkus.datasource."audit".db-kind=h2
+quarkus.hibernate-orm."audit".datasource=audit
+quarkus.hibernate-orm."audit".packages=org.acme.model.audit
+quarkus.hibernate-orm."audit".mapping.format.global=ignore
+```
+
+Each persistence unit is fully independent — "inventory" cannot affect "audit" and vice versa. Yet at the framework level, extensions like Hibernate ORM and Agroal receive **all** instances mixed together in flat lists and must manually group/filter them by name. This creates:
 
 1. **Parameter bloat** — methods with 15-20 params, many being `List<KeyedThing>`
 2. **Manual multi-list join by key** — the step receives N separate lists, all keyed by the same name, and must manually join them
