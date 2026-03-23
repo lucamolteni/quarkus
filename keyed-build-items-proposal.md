@@ -2,6 +2,25 @@
 
 ## TL;DR
 
+```properties
+# Default persistence unit + datasource
+quarkus.datasource.db-kind=postgresql
+quarkus.hibernate-orm.packages=org.acme.model.defaultpu
+quarkus.hibernate-orm.schema-management.strategy=drop-and-create
+
+# Named "inventory" persistence unit + datasource
+quarkus.datasource."inventory".db-kind=mysql
+quarkus.hibernate-orm."inventory".datasource=inventory
+quarkus.hibernate-orm."inventory".packages=org.acme.model.inventory
+quarkus.hibernate-orm."inventory".schema-management.strategy=update
+
+# Named "audit" persistence unit + datasource
+quarkus.datasource."audit".db-kind=h2
+quarkus.hibernate-orm."audit".datasource=audit
+quarkus.hibernate-orm."audit".packages=org.acme.model.audit
+quarkus.hibernate-orm."audit".mapping.format.global=ignore
+```
+
 Today:
 
 ```java
