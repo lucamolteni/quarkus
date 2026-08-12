@@ -3,10 +3,9 @@ package io.quarkus.agroal.deployment;
 import static io.quarkus.agroal.deployment.AgroalDataSourceBuildUtil.qualifiers;
 import static io.quarkus.arc.deployment.OpenTelemetrySdkBuildItem.isOtelSdkEnabled;
 import static io.quarkus.deployment.Capability.OPENTELEMETRY_TRACER;
-import static io.quarkus.deployment.component.ComponentLookup.AVAILABLE;
-import static io.quarkus.deployment.component.ComponentLookup.unavailable;
 
 import java.sql.Driver;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -72,7 +71,6 @@ import io.quarkus.deployment.builditem.nativeimage.NativeImageResourceBuildItem;
 import io.quarkus.deployment.builditem.nativeimage.NativeImageResourceBundleBuildItem;
 import io.quarkus.deployment.builditem.nativeimage.ReflectiveClassBuildItem;
 import io.quarkus.deployment.builditem.nativeimage.ServiceProviderBuildItem;
-import io.quarkus.deployment.component.AvailabilityRule;
 import io.quarkus.narayana.jta.deployment.NarayanaInitBuildItem;
 import io.quarkus.runtime.configuration.ConfigurationException;
 import io.quarkus.runtime.util.ProgrammingParadigm;
@@ -93,31 +91,26 @@ class AgroalProcessor {
     }
 
     @BuildStep
-    void defineJdbcDataSourceRequestHandler(
+    DataSourceRequestHandlerBuildItem defineJdbcDataSourceRequestHandler(
             DataSourcesJdbcBuildTimeConfig jdbcConfig,
-            DataSourceDbKindResolverBuildItem dbKindResolverBuildItem,
-            BuildProducer<DataSourceRequestHandlerBuildItem> handlers) {
+            DataSourceDbKindResolverBuildItem dbKindResolverBuildItem) {
         var dbKindResolver = dbKindResolverBuildItem.get();
-        handlers.produce(new DataSourceRequestHandlerBuildItem(new AvailabilityRule(ProgrammingParadigm.BLOCKING,
+        return new DataSourceRequestHandlerBuildItem(ProgrammingParadigm.BLOCKING,
                 dataSourceName -> {
+                    var unavailableReasons = new ArrayList<Reason>();
                     if (!jdbcConfig.dataSources().get(dataSourceName).jdbc().enabled()) {
-                        return unavailable(new Reason(String.format(Locale.ROOT, """
+                        unavailableReasons.add(new Reason(String.format(Locale.ROOT, """
                                 JDBC datasource '%s' was disabled explicitly by setting '%s' to 'false'. \
                                 Refer to https://quarkus.io/guides/datasource for guidance.
                                 """,
                                 dataSourceName,
                                 DataSourceUtil.dataSourcePropertyKey(dataSourceName, "jdbc"))));
                     }
-                    return AVAILABLE;
-                })));
-        handlers.produce(new DataSourceRequestHandlerBuildItem(new AvailabilityRule(ProgrammingParadigm.BLOCKING,
-                dataSourceName -> {
                     if (dbKindResolver.getOptional(dataSourceName).isEmpty()) {
-                        return unavailable(
-                                dbKindResolver.unavailableReason(dataSourceName, ProgrammingParadigm.BLOCKING));
+                        unavailableReasons.add(dbKindResolver.unavailableReason(dataSourceName, ProgrammingParadigm.BLOCKING));
                     }
-                    return AVAILABLE;
-                })));
+                    return unavailableReasons;
+                });
     }
 
     @BuildStep

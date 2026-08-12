@@ -15,9 +15,11 @@ import io.quarkus.datasource.deployment.spi.DefaultDataSourceDbKindBuildItem;
 import io.quarkus.datasource.runtime.DataSourcesBuildTimeConfig;
 import io.quarkus.deployment.annotations.BuildProducer;
 import io.quarkus.deployment.annotations.BuildStep;
+import io.quarkus.deployment.component.AvailabilityRule;
 import io.quarkus.deployment.component.ComponentLookup;
 import io.quarkus.deployment.pkg.builditem.CurateOutcomeBuildItem;
 import io.quarkus.runtime.util.ProgrammingParadigm;
+import io.quarkus.runtime.util.Reason;
 
 class DataSourceProcessor {
     public static final String TEST = "test";
@@ -26,7 +28,17 @@ class DataSourceProcessor {
     DataSourceLookupBuildItem defineLookup(List<DataSourceRequestHandlerBuildItem> handlers) {
         var lookup = new ComponentLookup();
         for (DataSourceRequestHandlerBuildItem handler : handlers) {
-            lookup.checkAvailability(handler.getRule());
+            lookup.checkAvailability(new AvailabilityRule(handler.getParadigm(), name -> {
+                List<Reason> reasons = handler.getUnavailableFunction().apply(name);
+                if (reasons.isEmpty()) {
+                    return ComponentLookup.AVAILABLE;
+                }
+                if (reasons.size() == 1) {
+                    return ComponentLookup.unavailable(reasons.getFirst());
+                }
+                return ComponentLookup.unavailable(
+                        new Reason("Multiple issues prevent datasource creation", reasons));
+            }));
         }
         return new DataSourceLookupBuildItem(lookup);
     }
