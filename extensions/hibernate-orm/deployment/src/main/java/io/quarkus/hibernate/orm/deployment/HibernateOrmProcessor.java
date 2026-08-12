@@ -84,7 +84,6 @@ import io.quarkus.arc.processor.DotNames;
 import io.quarkus.builder.BuildException;
 import io.quarkus.datasource.common.runtime.DataSourceUtil;
 import io.quarkus.datasource.common.runtime.DatabaseKind;
-import io.quarkus.datasource.deployment.spi.DataSourceLookupBuildItem;
 import io.quarkus.datasource.deployment.spi.DataSourceRequestBuildItem;
 import io.quarkus.datasource.deployment.spi.DefaultDataSourceDbVersionBuildItem;
 import io.quarkus.deployment.Capabilities;
@@ -119,7 +118,6 @@ import io.quarkus.deployment.builditem.nativeimage.NativeImageResourceBuildItem;
 import io.quarkus.deployment.builditem.nativeimage.ReflectiveClassBuildItem;
 import io.quarkus.deployment.builditem.nativeimage.ReflectiveMethodBuildItem;
 import io.quarkus.deployment.builditem.nativeimage.ServiceProviderBuildItem;
-import io.quarkus.deployment.component.ComponentLookup;
 import io.quarkus.deployment.index.LazyIndexer;
 import io.quarkus.deployment.pkg.AotJarEnabled;
 import io.quarkus.deployment.pkg.steps.NativeOrNativeSourcesBuild;
@@ -404,88 +402,6 @@ public final class HibernateOrmProcessor {
 
         reflectiveClasses.produce(ReflectiveClassBuildItem.builder(JACKSON_3_JSON_FORMAT_MAPPER).fields(false).methods(false)
                 .constructors().reason("Hibernate instantiates the class reflectively").build());
-    }
-
-    @BuildStep
-    PersistenceUnitLookupBuildItem defineLookup(HibernateOrmConfig config,
-            Capabilities capabilities,
-            List<AdditionalPersistenceUnitBuildItem> additionalPersistenceUnits,
-            DataSourceLookupBuildItem dataSourceLookupBuildItem) {
-        var dataSourceLookup = dataSourceLookupBuildItem.getLookup();
-        var blockingEnabled = config.blocking();
-        if (!blockingEnabled) {
-            LOG.infof("Hibernate ORM was disabled explicitly by quarkus.hibernate-orm.blocking=false");
-        }
-        var hibernateReactivePresent = capabilities.isPresent(Capability.HIBERNATE_REACTIVE);
-
-        return new PersistenceUnitLookupBuildItem(new ComponentLookup() {
-            @Override
-            public List<Reason> unavailableReasons(String name, ProgrammingParadigm paradigm) {
-                var unavailableReasons = new ArrayList<Reason>();
-                switch (paradigm) {
-                    case BLOCKING -> {
-                        if (!blockingEnabled) {
-                            unavailableReasons.add(new Reason(String.format(Locale.ROOT,
-                                    "Hibernate ORM was disabled explicitly by setting '%s' to 'false'",
-                                    HibernateOrmRuntimeConfig.puPropertyKey(name, "blocking"))));
-                        }
-                        if (!config.persistenceUnits().get(name).jdbc().enabled().orElse(true)) {
-                            unavailableReasons.add(new Reason(String.format(Locale.ROOT,
-                                    "Hibernate ORM was disabled explicitly by setting '%s' to 'false'",
-                                    HibernateOrmRuntimeConfig.puPropertyKey(name, "jdbc.enabled"))));
-                        }
-                    }
-                    case REACTIVE -> {
-                        if (!hibernateReactivePresent) {
-                            unavailableReasons.add(new Reason("Hibernate Reactive extension is absent"));
-                        }
-                        if (!config.persistenceUnits().get(name).reactive().enabled().orElse(true)) {
-                            unavailableReasons.add(new Reason(String.format(Locale.ROOT,
-                                    "Hibernate Reactive was disabled explicitly by setting '%s' to 'false'",
-                                    HibernateOrmRuntimeConfig.puPropertyKey(name, "reactive.enabled"))));
-                        }
-                    }
-                }
-                Optional<String> dataSourceName = additionalPersistenceUnits.stream()
-                        .filter(item -> item.getPersistenceUnitName().equals(name))
-                        .findFirst()
-                        .flatMap(AdditionalPersistenceUnitBuildItem::getDataSourceName)
-                        .or(() -> HibernateProcessorUtil.getDataSourceName(config, name));
-                if (dataSourceName.isPresent()) {
-                    List<Reason> dataSourceUnavailableReason = dataSourceLookup.unavailableReasons(dataSourceName.get(),
-                            paradigm);
-                    if (!dataSourceUnavailableReason.isEmpty()) {
-                        unavailableReasons.add(new Reason(
-                                String.format(Locale.ROOT, "%s datasource '%s' cannot be created",
-                                        switch (paradigm) {
-                                            case BLOCKING -> "JDBC";
-                                            case REACTIVE -> "Reactive";
-                                        },
-                                        dataSourceName.get()),
-                                dataSourceUnavailableReason));
-                    }
-                } else {
-                    MultiTenancyStrategy multiTenancyStrategy = getMultiTenancyStrategy(
-                            config.persistenceUnits().get(name).multitenant());
-                    // Reactive does not support multitenancy so we always require a datasource (explicit or implied)
-                    // See https://github.com/quarkusio/quarkus/issues/15959
-                    boolean reactive = ProgrammingParadigm.REACTIVE.equals(paradigm);
-                    if (reactive || multiTenancyStrategy != MultiTenancyStrategy.DATABASE) {
-                        String dsConfigProperty = HibernateOrmRuntimeConfig.puPropertyKey(name, "datasource");
-                        unavailableReasons.add(new Reason(String.format(Locale.ROOT,
-                                "Datasource must be defined for persistence unit '%s'. "
-                                        + "Set the datasource via the '%s' property. "
-                                        + (reactive ? ""
-                                                : "Alternatively, for dynamic datasource selection, set '%s=database'. ")
-                                        + "Refer to https://quarkus.io/guides/datasource "
-                                        + (reactive ? "" : "or https://quarkus.io/guides/hibernate-orm#database-approach ")
-                                        + "for guidance.",
-                                name, dsConfigProperty, dsConfigProperty)));
-                    }
-                }
-                return unavailableReasons;
-            }
-        });
     }
 
     @BuildStep

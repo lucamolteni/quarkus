@@ -1,10 +1,11 @@
 package io.quarkus.reactive.datasource.deployment;
 
+import static io.quarkus.deployment.component.ComponentLookup.AVAILABLE;
+import static io.quarkus.deployment.component.ComponentLookup.unavailable;
 import static io.quarkus.reactive.datasource.deployment.ReactiveDataSourceBuildUtil.qualifier;
 import static io.quarkus.reactive.datasource.deployment.ReactiveDataSourceBuildUtil.qualifiers;
 import static io.quarkus.reactive.datasource.deployment.ReactiveDataSourceDotNames.INJECT_INSTANCE;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -47,6 +48,7 @@ import io.quarkus.deployment.annotations.BuildProducer;
 import io.quarkus.deployment.annotations.BuildStep;
 import io.quarkus.deployment.annotations.ExecutionTime;
 import io.quarkus.deployment.annotations.Record;
+import io.quarkus.deployment.component.AvailabilityRule;
 import io.quarkus.reactive.datasource.PoolCreator;
 import io.quarkus.reactive.datasource.ReactiveDataSource;
 import io.quarkus.reactive.datasource.runtime.DataSourcesReactiveBuildTimeConfig;
@@ -68,25 +70,31 @@ class ReactiveDataSourceProcessor {
     private static final Type POOL_TYPE = ClassType.create(POOL);
 
     @BuildStep
-    DataSourceRequestHandlerBuildItem defineDataSourceRequestHandler(
+    void defineDataSourceRequestHandler(
             DataSourcesReactiveBuildTimeConfig reactiveConfig,
-            DataSourceDbKindResolverBuildItem dbKindResolverBuildItem) {
+            DataSourceDbKindResolverBuildItem dbKindResolverBuildItem,
+            BuildProducer<DataSourceRequestHandlerBuildItem> handlers) {
         var dbKindResolver = dbKindResolverBuildItem.get();
-        return new DataSourceRequestHandlerBuildItem(ProgrammingParadigm.REACTIVE, dataSourceName -> {
-            var unavailableReasons = new ArrayList<Reason>();
-            if (!reactiveConfig.dataSources().get(dataSourceName).reactive().enabled()) {
-                unavailableReasons.add(new Reason(String.format(Locale.ROOT, """
-                        Reactive datasource '%s' was disabled explicitly by setting '%s' to 'false'. \
-                        Refer to https://quarkus.io/guides/datasource for guidance.
-                        """,
-                        dataSourceName,
-                        DataSourceUtil.dataSourcePropertyKey(dataSourceName, "reactive"))));
-            }
-            if (dbKindResolver.getOptional(dataSourceName).isEmpty()) {
-                unavailableReasons.add(dbKindResolver.unavailableReason(dataSourceName, ProgrammingParadigm.REACTIVE));
-            }
-            return unavailableReasons;
-        });
+        handlers.produce(new DataSourceRequestHandlerBuildItem(new AvailabilityRule(ProgrammingParadigm.REACTIVE,
+                dataSourceName -> {
+                    if (!reactiveConfig.dataSources().get(dataSourceName).reactive().enabled()) {
+                        return unavailable(new Reason(String.format(Locale.ROOT, """
+                                Reactive datasource '%s' was disabled explicitly by setting '%s' to 'false'. \
+                                Refer to https://quarkus.io/guides/datasource for guidance.
+                                """,
+                                dataSourceName,
+                                DataSourceUtil.dataSourcePropertyKey(dataSourceName, "reactive"))));
+                    }
+                    return AVAILABLE;
+                })));
+        handlers.produce(new DataSourceRequestHandlerBuildItem(new AvailabilityRule(ProgrammingParadigm.REACTIVE,
+                dataSourceName -> {
+                    if (dbKindResolver.getOptional(dataSourceName).isEmpty()) {
+                        return unavailable(
+                                dbKindResolver.unavailableReason(dataSourceName, ProgrammingParadigm.REACTIVE));
+                    }
+                    return AVAILABLE;
+                })));
     }
 
     @BuildStep

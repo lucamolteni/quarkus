@@ -1,48 +1,65 @@
 package io.quarkus.deployment.component;
 
+import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
-import java.util.function.Function;
 
 import io.quarkus.runtime.util.ProgrammingParadigm;
 import io.quarkus.runtime.util.Reason;
 
 /**
- * A lookup allowing to determine early whether a given component can be made available,
- * and (if relevant) why not.
+ * Singleton that accumulates {@link AvailabilityRule}s determining whether a named component
+ * (e.g. a datasource or a persistence unit) can be created for a given {@link ProgrammingParadigm}.
  * <p>
- * Component here is meant in a very abstract way, for example "a datasource";
- * depending on context, this may translate into one or more CDI beans as well as other,
- * CDI-independent build-time or runtime objects.
+ * Extensions register rules via {@link #checkAvailability(AvailabilityRule)} during the build.
+ * When a consumer later asks whether a component is available, all matching rules are evaluated
+ * and any that return {@link LookupResult.Unavailable} produce a meaningful error message
+ * explaining why the component cannot be created.
  * <p>
- * Note: lookups are meant to take into account basic, critical configuration,
- * and provide information on a best-effort basis.
- * Subtle misconfiguration of a component can still result in its creation erroring out even if
+ * The procedural API allows splitting availability checks into small, independent rules
+ * rather than a single monolithic method with deeply nested branches.
+ * <p>
+ * Note: lookups provide information on a best-effort basis.
+ * Subtle misconfiguration can still cause a component to fail even if
  * the lookup advertises it as available.
  */
-@FunctionalInterface
-public interface ComponentLookup {
+public class ComponentLookup {
 
-    static ComponentLookup of(Function<String, List<Reason>> blockingUnavailableReasonFunction,
-            Function<String, List<Reason>> reactiveUnavailableReasonFunction) {
-        return new ComponentLookup() {
-            @Override
-            public List<Reason> unavailableReasons(String name, ProgrammingParadigm paradigm) {
-                return switch (paradigm) {
-                    case BLOCKING -> blockingUnavailableReasonFunction.apply(name);
-                    case REACTIVE -> reactiveUnavailableReasonFunction.apply(name);
-                };
-            }
-        };
+    public sealed interface LookupResult {
+        record Unavailable(Reason reason) implements LookupResult {
+        }
+
+        record Available() implements LookupResult {
+        }
     }
 
-    default Set<ProgrammingParadigm> availableParadigms(String name) {
+    public static final LookupResult AVAILABLE = new LookupResult.Available();
+
+    public static LookupResult unavailable(Reason reason) {
+        return new LookupResult.Unavailable(reason);
+    }
+
+    private final List<AvailabilityRule> rules = new ArrayList<>();
+
+    public void checkAvailability(AvailabilityRule rule) {
+        rules.add(rule);
+    }
+
+    public Set<ProgrammingParadigm> availableParadigms(String name) {
         var result = EnumSet.allOf(ProgrammingParadigm.class);
         result.removeIf(paradigm -> !unavailableReasons(name, paradigm).isEmpty());
         return result;
     }
 
-    List<Reason> unavailableReasons(String name, ProgrammingParadigm paradigm);
+    public List<Reason> unavailableReasons(String name, ProgrammingParadigm paradigm) {
+        return rules.stream()
+                .filter(rule -> rule.paradigm() == paradigm)
+                .map(rule -> rule.evaluate(name))
+                .filter(LookupResult.Unavailable.class::isInstance)
+                .map(LookupResult.Unavailable.class::cast)
+                .map(LookupResult.Unavailable::reason)
+                .toList();
+    }
 
 }

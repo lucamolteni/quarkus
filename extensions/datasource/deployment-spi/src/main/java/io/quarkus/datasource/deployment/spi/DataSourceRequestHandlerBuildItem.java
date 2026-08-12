@@ -1,11 +1,7 @@
 package io.quarkus.datasource.deployment.spi;
 
-import java.util.List;
-import java.util.function.Function;
-
 import io.quarkus.builder.item.MultiBuildItem;
-import io.quarkus.runtime.util.ProgrammingParadigm;
-import io.quarkus.runtime.util.Reason;
+import io.quarkus.deployment.component.AvailabilityRule;
 
 /**
  * Declares an extension can handle {@link DataSourceRequestBuildItem},
@@ -16,20 +12,13 @@ import io.quarkus.runtime.util.Reason;
  * other extensions should consume {@link DataSourceLookupBuildItem}.
  */
 public final class DataSourceRequestHandlerBuildItem extends MultiBuildItem {
-    private final ProgrammingParadigm paradigm;
-    private final Function<String, List<Reason>> unavailableFunction;
+    private final AvailabilityRule rule;
 
-    public DataSourceRequestHandlerBuildItem(ProgrammingParadigm paradigm,
-            Function<String, List<Reason>> unavailableFunction) {
-        this.paradigm = paradigm;
-        this.unavailableFunction = unavailableFunction;
+    public DataSourceRequestHandlerBuildItem(AvailabilityRule rule) {
+        this.rule = rule;
     }
 
-    public ProgrammingParadigm getParadigm() {
-        return paradigm;
-    }
-
-    public Function<String, List<Reason>> getUnavailableFunction() {
-        return unavailableFunction;
+    public AvailabilityRule getRule() {
+        return rule;
     }
 }

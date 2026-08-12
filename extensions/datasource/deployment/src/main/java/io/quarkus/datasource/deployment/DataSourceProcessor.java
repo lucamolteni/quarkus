@@ -5,7 +5,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.Function;
 
 import io.quarkus.datasource.deployment.spi.DataSourceDbKindResolverBuildItem;
 import io.quarkus.datasource.deployment.spi.DataSourceDefinedBuildItem;
@@ -19,40 +18,17 @@ import io.quarkus.deployment.annotations.BuildStep;
 import io.quarkus.deployment.component.ComponentLookup;
 import io.quarkus.deployment.pkg.builditem.CurateOutcomeBuildItem;
 import io.quarkus.runtime.util.ProgrammingParadigm;
-import io.quarkus.runtime.util.Reason;
 
 class DataSourceProcessor {
     public static final String TEST = "test";
 
     @BuildStep
     DataSourceLookupBuildItem defineLookup(List<DataSourceRequestHandlerBuildItem> handlers) {
-        boolean blockingFound = false;
-        boolean reactiveFound = false;
-        Function<String, List<Reason>> blockingUnavailableFunction = ignored -> List
-                .of(new Reason("Agroal extension is absent"));
-        Function<String, List<Reason>> reactiveUnavailableFunction = ignored -> List
-                .of(new Reason("Reactive Datasource extension is absent"));
+        var lookup = new ComponentLookup();
         for (DataSourceRequestHandlerBuildItem handler : handlers) {
-            switch (handler.getParadigm()) {
-                case BLOCKING -> {
-                    if (blockingFound) {
-                        throw new IllegalStateException("Multiple blocking datasource request handlers " + handlers);
-                    }
-                    blockingFound = true;
-                    blockingUnavailableFunction = handler.getUnavailableFunction();
-                }
-                case REACTIVE -> {
-                    if (reactiveFound) {
-                        throw new IllegalStateException("Multiple blocking datasource request handlers " + handlers);
-                    }
-                    reactiveFound = true;
-                    reactiveUnavailableFunction = handler.getUnavailableFunction();
-                }
-            }
+            lookup.checkAvailability(handler.getRule());
         }
-
-        return new DataSourceLookupBuildItem(
-                ComponentLookup.of(blockingUnavailableFunction, reactiveUnavailableFunction));
+        return new DataSourceLookupBuildItem(lookup);
     }
 
     @BuildStep
