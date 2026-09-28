@@ -127,7 +127,7 @@ public class CommonPanacheQueryImpl<Entity> {
     public <T> CommonPanacheQueryImpl<T> project(Class<T> type) {
         String selectQuery = query;
         if (PanacheJpaUtil.isNamedQuery(query)) {
-            SelectionQuery<?> q = session.createNamedSelectionQuery(query.substring(1), type);
+            SelectionQuery<?> q = session.createNamedSelectionQuery(query.substring(1), Object.class);
             selectQuery = getQueryString(q);
         }
 
