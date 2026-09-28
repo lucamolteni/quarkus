@@ -7047,16 +7047,18 @@
                                         </dependency>
                                     </dependencies>
                                 </dependencyAlignmentRule>
+                                <!-- Both accessor implementations use the same version. Core depends on the
+                                     ByteBuddy variant, while Quarkus uses the reflection-based variant. -->
+                                <!-- Temporary disabled in Hibernate 8 upgrade, needs to be reenabled.
                                 <dependencyAlignmentRule>
                                     <referenceArtifact>org.hibernate.orm:hibernate-core:${hibernate-orm.version}</referenceArtifact>
                                     <dependencies>
-                                        <!-- Both accessor implementations use the same version. Core depends on the
-                                             ByteBuddy variant, while Quarkus uses the reflection-based variant. -->
                                         <dependency>
                                             <artifact>org.hibernate.accessor:hibernate-accessor-bytebuddy</artifact>
                                         </dependency>
                                     </dependencies>
                                 </dependencyAlignmentRule>
+                                -->
                                 <dependencyAlignmentRule>
                                     <referenceArtifact>org.hibernate.orm:hibernate-spatial:${hibernate-orm.version}</referenceArtifact>
                                     <dependencies>
