@@ -5,15 +5,14 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.Id;
 import jakarta.validation.constraints.NotNull;
 
-import org.hibernate.annotations.GenericGenerator;
-import org.hibernate.id.uuid.UuidGenerator;
+import org.hibernate.annotations.UuidGenerator;
 
 @Entity
 public class TestEntity {
 
     @Id
     @GeneratedValue
-    @GenericGenerator(type = UuidGenerator.class)
+    @UuidGenerator
     String id;
 
     @NotNull

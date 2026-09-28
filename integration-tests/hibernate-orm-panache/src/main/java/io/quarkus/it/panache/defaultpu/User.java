@@ -6,15 +6,14 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
-import org.hibernate.annotations.GenericGenerator;
-import org.hibernate.id.uuid.UuidGenerator;
+import org.hibernate.annotations.UuidGenerator;
 
 @Entity
 @Table(name = "users")
 public class User {
     @Id
     @GeneratedValue
-    @GenericGenerator(type = UuidGenerator.class)
+    @UuidGenerator
     public String id;
 
     @Column(name = "first_name")
