@@ -363,7 +363,7 @@ public class CustomQueryMethodsAdder extends AbstractMethodsAdder {
                         }
 
                         Expr panacheQuery;
-                        Expr resultTypeClass = Const.of(ClassDesc.of(queryResultTypeName.toString()));
+                        Expr resultTypeClass = Const.of(GenerationUtil.toClassDesc(queryResultTypeName.toString()));
                         if (!finalNamedParameterToIndex.isEmpty()) {
                             Expr parameters = generateParametersObject(finalNamedParameterToIndex, bc, params);
 
