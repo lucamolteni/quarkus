@@ -1366,4 +1366,23 @@ class TestEndpoint {
 
         return "OK"
     }
+
+    @GET
+    @Path("projection-value-class")
+    @Transactional
+    fun testValueClassProjection(): String {
+        val mark = Person()
+        mark.name = "Mark"
+        mark.persistAndFlush()
+
+        val projected =
+            Person.find("id", mark.id!!).project(GreetingValueClassDto::class.java).firstResult()
+        Assertions.assertNotNull(projected)
+        Assertions.assertEquals(mark.id, projected?.id?.value)
+        Assertions.assertEquals(mark.name, projected?.name)
+
+        Person.deleteAll()
+
+        return "OK"
+    }
 }
