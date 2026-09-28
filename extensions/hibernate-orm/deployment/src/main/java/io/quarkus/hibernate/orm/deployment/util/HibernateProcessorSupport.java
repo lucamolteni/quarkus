@@ -345,6 +345,12 @@ public final class HibernateProcessorSupport {
                 fetchSize -> desc.getProperties().setProperty(AvailableSettings.STATEMENT_BATCH_SIZE,
                         String.valueOf(fetchSize)));
 
+        // Statistics
+        if (hibernateOrmConfig.metrics().enabled()
+                || hibernateOrmConfig.statistics().orElse(false)) {
+            desc.getProperties().setProperty(AvailableSettings.GENERATE_STATISTICS, "true");
+        }
+
         // Caching
         configureCaching(desc, config);
 
